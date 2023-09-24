@@ -40,8 +40,13 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   int get historyTracksLength =>
       historyMap.value.entries.fold(0, (sum, obj) => sum + obj.value.length);
-  List<T> get historyTracks => historyMap.value.values
-      .fold([], (mainList, newEntry) => mainList..addAll(newEntry));
+
+  Iterable<T> get historyTracks sync* {
+    for (final trs in historyMap.value.values) {
+      yield* trs;
+    }
+  }
+
   T? get oldestTrack => historyMap.value[historyDays.lastOrNull]?.lastOrNull;
   T? get newestTrack => historyMap.value[historyDays.firstOrNull]?.firstOrNull;
   Iterable<int> get historyDays => historyMap.value.keys;
@@ -188,11 +193,12 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     } else {
       final Map<E, List<int>> tempMap = <E, List<int>>{};
 
-      historyTracks.loop((t, index) {
+      for (final t in historyTracks) {
         tempMap.addForce(
             mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
-      });
+      }
 
+      /// Sorting dates
       for (final entry in tempMap.values) {
         entry.sort();
       }
