@@ -8,6 +8,7 @@ import 'package:dart_extensions/dart_extensions.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
+import 'package:history_manager/src/models/history_scroll_info.dart';
 
 import 'enums.dart';
 import 'models/date_range.dart';
@@ -73,6 +74,31 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   final ScrollController scrollController = ScrollController();
   final Rxn<int> indexToHighlight = Rxn<int>();
   final Rxn<int> dayOfHighLight = Rxn<int>();
+
+  HistoryScrollInfo getListenScrollPosition({
+    required final int listenMS,
+    final int extraItemsOffset = 2,
+  }) {
+    final daysKeys = historyDays.toList();
+    daysKeys.removeWhere((element) => element <= listenMS.toDaysSince1970());
+    final daysToScroll = daysKeys.length + 1;
+    int itemsToScroll = 0;
+    daysKeys.loop((e, index) {
+      itemsToScroll += historyMap.value[e]?.length ?? 0;
+    });
+    final itemSmallList = historyMap.value[listenMS.toDaysSince1970()]!;
+    final indexOfSmallList = itemSmallList.indexWhere(
+        (element) => element.dateTimeAdded.millisecondsSinceEpoch == listenMS);
+    itemsToScroll += indexOfSmallList;
+    itemsToScroll -= extraItemsOffset;
+
+    return HistoryScrollInfo(
+      indexOfSmallList: indexOfSmallList,
+      dayToHighLight: listenMS.toDaysSince1970(),
+      itemsToScroll: itemsToScroll,
+      daysToScroll: daysToScroll,
+    );
+  }
 
   Future<void> addTracksToHistory(List<T> tracks) async {
     if (_isLoadingHistory) {
