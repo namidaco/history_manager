@@ -435,6 +435,6 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   bool get isLoadingHistory => _isLoadingHistory;
 
   final _historyAndMostPlayedLoad = Completer<bool>();
-  Future<bool> get waitForHistoryAndMostPlayedLoad =>
-      _historyAndMostPlayedLoad.future;
+  Future<bool> get waitForHistoryAndMostPlayedLoad => _historyAndMostPlayedLoad.future;
+  bool get isHistoryLoaded => _historyAndMostPlayedLoad.isCompleted;
 }
