@@ -19,8 +19,7 @@ import 'models/item_with_date.dart';
 /// History is saved in chunks by days.
 mixin HistoryManager<T extends ItemWithDate, E> {
   E mainItemToSubItem(T item);
-  Future<Map<int, List<T>>> prepareAllHistoryFilesFunction(
-      String directoryPath);
+  Future<Map<int, List<T>>> prepareAllHistoryFilesFunction(String directoryPath);
 
   Map<String, dynamic> itemToJson(T item);
 
@@ -39,8 +38,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   RxList<double> allItemsExtentsHistory = <double>[].obs;
 
-  int get historyTracksLength =>
-      historyMap.value.entries.fold(0, (sum, obj) => sum + obj.value.length);
+  int get historyTracksLength => historyMap.value.entries.fold(0, (sum, obj) => sum + obj.value.length);
 
   Iterable<T> get historyTracks sync* {
     for (final trs in historyMap.value.values) {
@@ -57,8 +55,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// Sorted by newest date, i.e. newest list would be the first.
   ///
   /// For each List, the tracks are added to the first index, i.e. newest track would be the first.
-  final Rx<SplayTreeMap<int, List<T>>> historyMap =
-      SplayTreeMap<int, List<T>>((date1, date2) => date2.compareTo(date1)).obs;
+  final Rx<SplayTreeMap<int, List<T>>> historyMap = SplayTreeMap<int, List<T>>((date1, date2) => date2.compareTo(date1)).obs;
 
   final RxMap<E, List<int>> topTracksMapListens = <E, List<int>>{}.obs;
   final RxMap<E, List<int>> topTracksMapListensTemp = <E, List<int>>{}.obs;
@@ -87,8 +84,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       itemsToScroll += historyMap.value[e]?.length ?? 0;
     });
     final itemSmallList = historyMap.value[listenMS.toDaysSince1970()]!;
-    final indexOfSmallList = itemSmallList.indexWhere(
-        (element) => element.dateTimeAdded.millisecondsSinceEpoch == listenMS);
+    final indexOfSmallList = itemSmallList.indexWhere((element) => element.dateTimeAdded.millisecondsSinceEpoch == listenMS);
     itemsToScroll += indexOfSmallList;
     itemsToScroll -= extraItemsOffset;
 
@@ -127,12 +123,28 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return daysToSave;
   }
 
+  void removeDuplicatedItems([List<int> inDays = const []]) {
+    if (inDays.isNotEmpty) {
+      for (int i = 0; i < inDays.length; i++) {
+        final day = inDays[i];
+        final trs = historyMap.value[day];
+        if (trs != null) {
+          trs.removeDuplicates();
+        }
+      }
+    } else {
+      historyMap.value.forEach((key, value) {
+        value.removeDuplicates();
+      });
+    }
+    historyMap.refresh();
+  }
+
   /// Sorts each [historyMap]'s value by newest.
   ///
   /// Providing [daysToSort] will sort these entries only.
   void sortHistoryTracks([List<int>? daysToSort]) {
-    void sortTheseTracks(List<T> tracks) =>
-        tracks.sortByReverse((e) => e.dateTimeAdded.millisecondsSinceEpoch);
+    void sortTheseTracks(List<T> tracks) => tracks.sortByReverse((e) => e.dateTimeAdded.millisecondsSinceEpoch);
 
     if (daysToSort != null) {
       for (int i = 0; i < daysToSort.length; i++) {
@@ -142,17 +154,18 @@ mixin HistoryManager<T extends ItemWithDate, E> {
           sortTheseTracks(trs);
         }
       }
+    } else {
+      historyMap.value.forEach((key, value) {
+        sortTheseTracks(value);
+      });
     }
-    historyMap.value.forEach((key, value) {
-      sortTheseTracks(value);
-    });
+    historyMap.refresh();
   }
 
   Future<void> removeTracksFromHistory(List<T> tracksWithDates) async {
     final dayAndTracksToDeleteMap = <int, List<T>>{};
     tracksWithDates.loop((twd, index) {
-      dayAndTracksToDeleteMap.addForce(
-          twd.dateTimeAdded.toDaysSince1970(), twd);
+      dayAndTracksToDeleteMap.addForce(twd.dateTimeAdded.toDaysSince1970(), twd);
     });
     final days = dayAndTracksToDeleteMap.keys.toList();
     days.loop((d, index) {
@@ -160,8 +173,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       final tracksToDelete = dayAndTracksToDeleteMap[d] ?? [];
       tracksToDelete.loop((ttd, index) {
         tracksInMap.remove(ttd);
-        topTracksMapListens[mainItemToSubItem(ttd)]
-            ?.remove(ttd.dateTimeAdded.millisecondsSinceEpoch);
+        topTracksMapListens[mainItemToSubItem(ttd)]?.remove(ttd.dateTimeAdded.millisecondsSinceEpoch);
       });
     });
 
@@ -190,8 +202,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// Most Played Playlist, relies totally on History Playlist.
   /// Sending [track && dateTimeAdded] just adds it to the map and sort, it won't perform a re-lookup from history.
   void updateMostPlayedPlaylist([List<T>? tracksWithDate]) {
-    void sortAndUpdateMap(Map<E, List<int>> unsortedMap,
-        {Map<E, List<int>>? mapToUpdate}) {
+    void sortAndUpdateMap(Map<E, List<int>> unsortedMap, {Map<E, List<int>>? mapToUpdate}) {
       final sortedEntries = unsortedMap.entries.toList()
         ..sort((a, b) {
           final compare = b.value.length.compareTo(a.value.length);
@@ -211,8 +222,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     if (tracksWithDate != null) {
       tracksWithDate.loop((twd, index) {
-        topTracksMapListens.addForce(
-            mainItemToSubItem(twd), twd.dateTimeAdded.millisecondsSinceEpoch);
+        topTracksMapListens.addForce(mainItemToSubItem(twd), twd.dateTimeAdded.millisecondsSinceEpoch);
       });
 
       sortAndUpdateMap(topTracksMapListens);
@@ -220,8 +230,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       final Map<E, List<int>> tempMap = <E, List<int>>{};
 
       for (final t in historyTracks) {
-        tempMap.addForce(
-            mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
+        tempMap.addForce(mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
       }
 
       /// Sorting dates
@@ -270,17 +279,12 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final varMapOldestDate = isStartOfDay
         ? {
             MostPlayedTimeRange.allTime: null,
-            MostPlayedTimeRange.day:
-                DateTime(timeNow.year, timeNow.month, timeNow.day),
-            MostPlayedTimeRange.day3:
-                DateTime(timeNow.year, timeNow.month, timeNow.day - 2),
-            MostPlayedTimeRange.week:
-                DateTime(timeNow.year, timeNow.month, timeNow.day - 6),
+            MostPlayedTimeRange.day: DateTime(timeNow.year, timeNow.month, timeNow.day),
+            MostPlayedTimeRange.day3: DateTime(timeNow.year, timeNow.month, timeNow.day - 2),
+            MostPlayedTimeRange.week: DateTime(timeNow.year, timeNow.month, timeNow.day - 6),
             MostPlayedTimeRange.month: DateTime(timeNow.year, timeNow.month),
-            MostPlayedTimeRange.month3:
-                DateTime(timeNow.year, timeNow.month - 2),
-            MostPlayedTimeRange.month6:
-                DateTime(timeNow.year, timeNow.month - 5),
+            MostPlayedTimeRange.month3: DateTime(timeNow.year, timeNow.month - 2),
+            MostPlayedTimeRange.month6: DateTime(timeNow.year, timeNow.month - 5),
             MostPlayedTimeRange.year: DateTime(timeNow.year),
             MostPlayedTimeRange.custom: customDate?.oldest,
           }
@@ -289,23 +293,16 @@ mixin HistoryManager<T extends ItemWithDate, E> {
             MostPlayedTimeRange.day: DateTime.now(),
             MostPlayedTimeRange.day3: timeNow.subtract(const Duration(days: 3)),
             MostPlayedTimeRange.week: timeNow.subtract(const Duration(days: 7)),
-            MostPlayedTimeRange.month:
-                timeNow.subtract(const Duration(days: 30)),
-            MostPlayedTimeRange.month3:
-                timeNow.subtract(const Duration(days: 30 * 3)),
-            MostPlayedTimeRange.month6:
-                timeNow.subtract(const Duration(days: 30 * 6)),
-            MostPlayedTimeRange.year:
-                timeNow.subtract(const Duration(days: 365)),
+            MostPlayedTimeRange.month: timeNow.subtract(const Duration(days: 30)),
+            MostPlayedTimeRange.month3: timeNow.subtract(const Duration(days: 30 * 3)),
+            MostPlayedTimeRange.month6: timeNow.subtract(const Duration(days: 30 * 6)),
+            MostPlayedTimeRange.year: timeNow.subtract(const Duration(days: 365)),
             MostPlayedTimeRange.custom: customDate?.oldest,
           };
 
-    final map = {
-      for (final e in MostPlayedTimeRange.values) e: varMapOldestDate[e]
-    };
+    final map = {for (final e in MostPlayedTimeRange.values) e: varMapOldestDate[e]};
 
-    final newDate =
-        mptr == MostPlayedTimeRange.custom ? customDate?.newest : timeNow;
+    final newDate = mptr == MostPlayedTimeRange.custom ? customDate?.newest : timeNow;
     final oldDate = map[mptr];
 
     final betweenDates = generateTracksFromHistoryDates(
@@ -317,8 +314,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final Map<E, List<int>> tempMap = <E, List<int>>{};
 
     betweenDates.loop((t, index) {
-      tempMap.addForce(
-          mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
+      tempMap.addForce(mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
     });
 
     for (final entry in tempMap.values) {
@@ -339,9 +335,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   /// if [maxCount == null], it will return all available tracks
-  List<T> generateTracksFromHistoryDates(
-      DateTime? oldestDate, DateTime? newestDate,
-      {bool removeDuplicates = true}) {
+  List<T> generateTracksFromHistoryDates(DateTime? oldestDate, DateTime? newestDate, {bool removeDuplicates = true}) {
     if (oldestDate == null || newestDate == null) return [];
 
     final tracksAvailable = <T>[];
@@ -365,8 +359,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   Future<void> saveHistoryToStorage([List<int>? daysToSave]) async {
     Future<void> saveThisDay(int key, List<T> tracks) async {
-      await File('$HISTORY_DIRECTORY$key.json')
-          .writeAsJson(tracks.map((e) => itemToJson(e)).toList());
+      await File('$HISTORY_DIRECTORY$key.json').writeAsJson(tracks.map((e) => itemToJson(e)).toList());
     }
 
     Future<void> deleteThisDay(int key) async {
@@ -380,8 +373,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         final day = daysToSave[i];
         final trs = historyMap.value[day];
         if (trs == null) {
-          printy('couldn\'t find [dayToSave] inside [historyMap]',
-              isError: true);
+          printy('couldn\'t find [dayToSave] inside [historyMap]', isError: true);
           await deleteThisDay(day);
           continue;
         }
