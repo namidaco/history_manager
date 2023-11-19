@@ -372,15 +372,19 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       for (int i = 0; i < daysToSave.length; i++) {
         final day = daysToSave[i];
         final trs = historyMap.value[day];
-        if (trs == null) {
-          printy('couldn\'t find [dayToSave] inside [historyMap]', isError: true);
-          await deleteThisDay(day);
+        try {
+          if (trs == null) {
+            printy('couldn\'t find [dayToSave] inside [historyMap]', isError: true);
+            await deleteThisDay(day);
+            continue;
+          }
+          if (trs.isEmpty) {
+            await deleteThisDay(day);
+          } else {
+            await saveThisDay(day, trs);
+          }
+        } catch (_) {
           continue;
-        }
-        if (trs.isEmpty) {
-          await deleteThisDay(day);
-        } else {
-          await saveThisDay(day, trs);
         }
       }
     } else {
