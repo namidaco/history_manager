@@ -105,12 +105,14 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final daysToSave = addTracksToHistoryOnly(tracks);
     updateMostPlayedPlaylist(tracks);
     await saveHistoryToStorage(daysToSave);
+    calculateAllItemsExtentsInHistory();
   }
 
   /// adds [tracks] to [historyMap] and returns [daysToSave], to be used by [saveHistoryToStorage].
   ///
-  /// By using this instead of [addTracksToHistory], you gurantee that you WILL call [updateMostPlayedPlaylist], [sortHistoryTracks] and [saveHistoryToStorage].
-  /// Use this ONLY when adding large number of tracks at once, such as adding from youtube or lastfm history.
+  /// By using this instead of [addTracksToHistory], you gurantee that you WILL call:
+  /// [updateMostPlayedPlaylist], [sortHistoryTracks], [saveHistoryToStorage] and [calculateAllItemsExtentsInHistory].
+  /// Use this ONLY when continuously adding large number of tracks in a short span, such as adding from youtube or lastfm history.
   List<int> addTracksToHistoryOnly(List<T> tracks) {
     final daysToSave = <int>[];
     tracks.loop((twd, _) {
@@ -118,8 +120,6 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       daysToSave.add(day);
       historyMap.value.insertForce(0, day, twd);
     });
-    calculateAllItemsExtentsInHistory();
-
     return daysToSave;
   }
 
@@ -409,6 +409,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   void calculateAllItemsExtentsInHistory() {
+    if (!canUpdateAllItemsExtentsInHistory) return;
     final tie = trackTileItemExtent;
     final header = DAY_HEADER_HEIGHT_WITH_PADDING;
     allItemsExtentsHistory
@@ -428,4 +429,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   final _historyAndMostPlayedLoad = Completer<bool>();
   Future<bool> get waitForHistoryAndMostPlayedLoad => _historyAndMostPlayedLoad.future;
   bool get isHistoryLoaded => _historyAndMostPlayedLoad.isCompleted;
+
+  /// use this to update item extents only when needed, to save resources.
+  ///
+  /// calling [calculateAllItemsExtentsInHistory] while this is false will have no effect.
+  bool canUpdateAllItemsExtentsInHistory = false;
 }
