@@ -113,10 +113,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// Use this ONLY when adding large number of tracks at once, such as adding from youtube or lastfm history.
   List<int> addTracksToHistoryOnly(List<T> tracks) {
     final daysToSave = <int>[];
-    tracks.loop((e, i) {
-      final trackday = e.dateTimeAdded.toDaysSince1970();
-      daysToSave.add(trackday);
-      historyMap.value.insertForce(0, trackday, e);
+    tracks.loop((twd, _) {
+      final day = twd.dateTimeAdded.toDaysSince1970();
+      daysToSave.add(day);
+      historyMap.value.insertForce(0, day, twd);
     });
     calculateAllItemsExtentsInHistory();
 
@@ -163,21 +163,16 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> removeTracksFromHistory(List<T> tracksWithDates) async {
-    final dayAndTracksToDeleteMap = <int, List<T>>{};
-    tracksWithDates.loop((twd, index) {
-      dayAndTracksToDeleteMap.addForce(twd.dateTimeAdded.toDaysSince1970(), twd);
+    final daysToSave = <int>[];
+    tracksWithDates.loop((twd, _) {
+      final day = twd.dateTimeAdded.toDaysSince1970();
+      final didRemove = historyMap.value[day]?.remove(twd) ?? false;
+      if (didRemove) {
+        daysToSave.add(day);
+        topTracksMapListens[mainItemToSubItem(twd)]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
+      }
     });
-    final days = dayAndTracksToDeleteMap.keys.toList();
-    days.loop((d, index) {
-      final tracksInMap = historyMap.value[d] ?? [];
-      final tracksToDelete = dayAndTracksToDeleteMap[d] ?? [];
-      tracksToDelete.loop((ttd, index) {
-        tracksInMap.remove(ttd);
-        topTracksMapListens[mainItemToSubItem(ttd)]?.remove(ttd.dateTimeAdded.millisecondsSinceEpoch);
-      });
-    });
-
-    await saveHistoryToStorage(days);
+    await saveHistoryToStorage(daysToSave);
     calculateAllItemsExtentsInHistory();
   }
 
