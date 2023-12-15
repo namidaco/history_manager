@@ -19,7 +19,7 @@ import 'models/item_with_date.dart';
 /// History is saved in chunks by days.
 mixin HistoryManager<T extends ItemWithDate, E> {
   E mainItemToSubItem(T item);
-  Future<Map<int, List<T>>> prepareAllHistoryFilesFunction(String directoryPath);
+  Future<SplayTreeMap<int, List<T>>> prepareAllHistoryFilesFunction(String directoryPath);
 
   Map<String, dynamic> itemToJson(T item);
 
@@ -391,12 +391,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> prepareHistoryFile() async {
-    final map = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY);
-    historyMap.value
-      ..clear()
-      ..addAll(map);
-
-    historyMap.refresh();
+    historyMap.value = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY);
     _isLoadingHistory = false;
     // Adding tracks that were rejected by [addToHistory] since history wasn't fully loaded.
     if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
@@ -412,11 +407,11 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (!canUpdateAllItemsExtentsInHistory) return;
     final tie = trackTileItemExtent;
     final header = DAY_HEADER_HEIGHT_WITH_PADDING;
-    allItemsExtentsHistory
-      ..clear()
-      ..addAll(historyMap.value.entries.map(
-        (e) => header + (e.value.length * tie),
-      ));
+    allItemsExtentsHistory.value = historyMap.value.entries
+        .map(
+          (e) => header + (e.value.length * tie),
+        )
+        .toList();
   }
 
   /// Used to add tracks that were rejected by [addToHistory] after full loading of history.
