@@ -97,7 +97,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> addTracksToHistory(List<T> tracks) async {
-    if (_isLoadingHistory) {
+    if (_isLoadingHistory || _isIdle) {
       // after history full load, [addTracksToHistory] will be called to add tracks inside [_tracksToAddAfterHistoryLoad].
       _tracksToAddAfterHistoryLoad.addAll(tracks);
       return;
@@ -413,6 +413,24 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         )
         .toList();
   }
+
+  /// Indicates wether the history should add items to the map normally.
+  ///
+  /// You should set this to true while modifying a copy of the history,
+  /// and then setting it to false to re-add items that were waiting
+  Future<void> setIdleStatus(bool idle) async {
+    if (idle) {
+      _isIdle = true;
+    } else {
+      _isIdle = false;
+      if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
+        await addTracksToHistory(_tracksToAddAfterHistoryLoad);
+        _tracksToAddAfterHistoryLoad.clear();
+      }
+    }
+  }
+
+  bool _isIdle = false;
 
   /// Used to add tracks that were rejected by [addToHistory] after full loading of history.
   ///
