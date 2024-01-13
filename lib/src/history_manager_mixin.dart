@@ -19,7 +19,9 @@ import 'models/item_with_date.dart';
 /// History is saved in chunks by days.
 mixin HistoryManager<T extends ItemWithDate, E> {
   E mainItemToSubItem(T item);
-  Future<SplayTreeMap<int, List<T>>> prepareAllHistoryFilesFunction(String directoryPath);
+
+  /// Return history map along with sorted entries, See [updateMostPlayedPlaylist] for sorting.
+  Future<({SplayTreeMap<int, List<T>> historyMap, Map<E, List<int>> topItems})> prepareAllHistoryFilesFunction(String directoryPath);
 
   Map<String, dynamic> itemToJson(T item);
 
@@ -391,7 +393,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> prepareHistoryFile() async {
-    historyMap.value = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY);
+    final res = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY);
+    historyMap.value = res.historyMap;
+    topTracksMapListens.value = res.topItems;
     _isLoadingHistory = false;
     // Adding tracks that were rejected by [addToHistory] since history wasn't fully loaded.
     if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
@@ -399,7 +403,6 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       _tracksToAddAfterHistoryLoad.clear();
     }
     calculateAllItemsExtentsInHistory();
-    updateMostPlayedPlaylist();
     _historyAndMostPlayedLoad.complete(true);
   }
 
