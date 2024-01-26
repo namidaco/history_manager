@@ -396,6 +396,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final res = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY);
     historyMap.value = res.historyMap;
     topTracksMapListens.value = res.topItems;
+    updateTempMostPlayedPlaylist();
     _isLoadingHistory = false;
     // Adding tracks that were rejected by [addToHistory] since history wasn't fully loaded.
     if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
