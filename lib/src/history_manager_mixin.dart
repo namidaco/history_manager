@@ -404,7 +404,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       _tracksToAddAfterHistoryLoad.clear();
     }
     calculateAllItemsExtentsInHistory();
-    _historyAndMostPlayedLoad.complete(true);
+    if (!_historyAndMostPlayedLoad.isCompleted) _historyAndMostPlayedLoad.complete(true);
   }
 
   void calculateAllItemsExtentsInHistory() {
