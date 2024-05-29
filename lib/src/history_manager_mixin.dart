@@ -6,9 +6,8 @@ import 'dart:io';
 
 import 'package:dart_extensions/dart_extensions.dart';
 import 'package:flutter/material.dart';
-
-import 'package:get/get.dart';
 import 'package:history_manager/src/models/history_scroll_info.dart';
+import 'package:nampack/reactive/reactive.dart';
 
 import 'enums.dart';
 import 'models/date_range.dart';
@@ -25,20 +24,20 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   Map<String, dynamic> itemToJson(T item);
 
-  /// Used for calculating total items extends.
-  double get DAY_HEADER_HEIGHT_WITH_PADDING;
-
   String get HISTORY_DIRECTORY;
-
-  double get trackTileItemExtent;
 
   MostPlayedTimeRange get currentMostPlayedTimeRange;
   DateRange get mostPlayedCustomDateRange;
   bool get mostPlayedCustomIsStartOfDay;
 
-  // ============================================
+  double daysToSectionExtent(List<int> days);
 
-  RxList<double> allItemsExtentsHistory = <double>[].obs;
+  double dayToSectionExtent(int day, double itemExtent, double headerExtent) {
+    final tracksCount = historyMap.valueRaw[day]?.length ?? 0;
+    return headerExtent + (tracksCount * itemExtent);
+  }
+
+  // ============================================
 
   int get historyTracksLength => historyMap.value.entries.fold(0, (sum, obj) => sum + obj.value.length);
 
@@ -70,9 +69,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   DateRange? get latestDateRange => _latestDateRange.value;
   final _latestDateRange = Rxn<DateRange>();
 
-  final ScrollController scrollController = ScrollController();
-  final Rxn<int> indexToHighlight = Rxn<int>();
-  final Rxn<int> dayOfHighLight = Rxn<int>();
+  late final ScrollController scrollController = ScrollController();
+  late final Rxn<int> indexToHighlight = Rxn<int>();
+  late final Rxn<int> dayOfHighLight = Rxn<int>();
 
   HistoryScrollInfo getListenScrollPosition({
     required final int listenMS,
@@ -82,10 +81,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     daysKeys.removeWhere((element) => element <= listenMS.toDaysSince1970());
     final daysToScroll = daysKeys.length + 1;
     int itemsToScroll = 0;
-    daysKeys.loop((e, index) {
-      itemsToScroll += historyMap.value[e]?.length ?? 0;
+    daysKeys.loop((e) {
+      itemsToScroll += historyMap.valueRaw[e]?.length ?? 0;
     });
-    final itemSmallList = historyMap.value[listenMS.toDaysSince1970()]!;
+    final itemSmallList = historyMap.valueRaw[listenMS.toDaysSince1970()]!;
     final indexOfSmallList = itemSmallList.indexWhere((element) => element.dateTimeAdded.millisecondsSinceEpoch == listenMS);
     itemsToScroll += indexOfSmallList;
     itemsToScroll -= extraItemsOffset;
@@ -107,17 +106,16 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final daysToSave = addTracksToHistoryOnly(tracks);
     updateMostPlayedPlaylist(tracks);
     await saveHistoryToStorage(daysToSave);
-    calculateAllItemsExtentsInHistory();
   }
 
   /// adds [tracks] to [historyMap] and returns [daysToSave], to be used by [saveHistoryToStorage].
   ///
   /// By using this instead of [addTracksToHistory], you gurantee that you WILL call:
-  /// [updateMostPlayedPlaylist], [sortHistoryTracks], [saveHistoryToStorage] and [calculateAllItemsExtentsInHistory].
+  /// [updateMostPlayedPlaylist], [sortHistoryTracks], [saveHistoryToStorage].
   /// Use this ONLY when continuously adding large number of tracks in a short span, such as adding from youtube or lastfm history.
   List<int> addTracksToHistoryOnly(List<T> tracks) {
     final daysToSave = <int>[];
-    tracks.loop((twd, _) {
+    tracks.loop((twd) {
       final day = twd.dateTimeAdded.toDaysSince1970();
       daysToSave.add(day);
       historyMap.value.insertForce(0, day, twd);
@@ -129,7 +127,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (inDays.isNotEmpty) {
       for (int i = 0; i < inDays.length; i++) {
         final day = inDays[i];
-        final trs = historyMap.value[day];
+        final trs = historyMap.valueRaw[day];
         if (trs != null) {
           trs.removeDuplicates();
         }
@@ -151,7 +149,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (daysToSort != null) {
       for (int i = 0; i < daysToSort.length; i++) {
         final day = daysToSort[i];
-        final trs = historyMap.value[day];
+        final trs = historyMap.valueRaw[day];
         if (trs != null) {
           sortTheseTracks(trs);
         }
@@ -166,16 +164,15 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   Future<void> removeTracksFromHistory(List<T> tracksWithDates) async {
     final daysToSave = <int>[];
-    tracksWithDates.loop((twd, _) {
+    tracksWithDates.loop((twd) {
       final day = twd.dateTimeAdded.toDaysSince1970();
-      final didRemove = historyMap.value[day]?.remove(twd) ?? false;
+      final didRemove = historyMap.valueRaw[day]?.remove(twd) ?? false;
       if (didRemove) {
         daysToSave.add(day);
         topTracksMapListens[mainItemToSubItem(twd)]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
       }
     });
     await saveHistoryToStorage(daysToSave);
-    calculateAllItemsExtentsInHistory();
   }
 
   Future<void> replaceTheseTracksInHistory(
@@ -183,7 +180,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     T Function(T old) newElement,
   ) async {
     final daysToSave = <int>[];
-    historyMap.value.entries.toList().loop((entry, index) {
+    historyMap.value.entries.toList().loop((entry) {
       final day = entry.key;
       final trs = entry.value;
       trs.replaceWhere(
@@ -218,7 +215,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     }
 
     if (tracksWithDate != null) {
-      tracksWithDate.loop((twd, index) {
+      tracksWithDate.loop((twd) {
         topTracksMapListens.addForce(mainItemToSubItem(twd), twd.dateTimeAdded.millisecondsSinceEpoch);
       });
 
@@ -310,7 +307,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     final Map<E, List<int>> tempMap = <E, List<int>>{};
 
-    betweenDates.loop((t, index) {
+    betweenDates.loop((t) {
       tempMap.addForce(mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
     });
 
@@ -341,7 +338,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final oldestDay = oldestDate.toDaysSince1970();
     final newestDay = newestDate.toDaysSince1970();
 
-    entries.loop((entry, index) {
+    entries.loop((entry) {
       final day = entry.key;
       if (day >= oldestDay && day <= newestDay) {
         tracksAvailable.addAll(entry.value);
@@ -368,7 +365,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       daysToSave.removeDuplicates();
       for (int i = 0; i < daysToSave.length; i++) {
         final day = daysToSave[i];
-        final trs = historyMap.value[day];
+        final trs = historyMap.valueRaw[day];
         try {
           if (trs == null) {
             printy('couldn\'t find [dayToSave] inside [historyMap]', isError: true);
@@ -403,19 +400,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       await addTracksToHistory(_tracksToAddAfterHistoryLoad);
       _tracksToAddAfterHistoryLoad.clear();
     }
-    calculateAllItemsExtentsInHistory();
     if (!_historyAndMostPlayedLoad.isCompleted) _historyAndMostPlayedLoad.complete(true);
-  }
-
-  void calculateAllItemsExtentsInHistory() {
-    if (!canUpdateAllItemsExtentsInHistory) return;
-    final tie = trackTileItemExtent;
-    final header = DAY_HEADER_HEIGHT_WITH_PADDING;
-    allItemsExtentsHistory.value = historyMap.value.entries
-        .map(
-          (e) => header + (e.value.length * tie),
-        )
-        .toList();
   }
 
   /// Indicates wether the history should add items to the map normally.
@@ -446,9 +431,4 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   final _historyAndMostPlayedLoad = Completer<bool>();
   Future<bool> get waitForHistoryAndMostPlayedLoad => _historyAndMostPlayedLoad.future;
   bool get isHistoryLoaded => _historyAndMostPlayedLoad.isCompleted;
-
-  /// use this to update item extents only when needed, to save resources.
-  ///
-  /// calling [calculateAllItemsExtentsInHistory] while this is false will have no effect.
-  bool canUpdateAllItemsExtentsInHistory = false;
 }

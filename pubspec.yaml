@@ -1,6 +1,6 @@
 name: history_manager
 description: A new Flutter package project.
-version: 0.0.2
+version: 0.0.5
 homepage:
 publish_to: none
 
@@ -11,9 +11,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  get:
+  nampack:
     git:
-      url: https://github.com/MSOB7YY/getx
+      url: https://github.com/MSOB7YY/nampack
   dart_extensions:
     git:
       url: https://github.com/MSOB7YY/dart_extensions
