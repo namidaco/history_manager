@@ -33,7 +33,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   double daysToSectionExtent(List<int> days);
 
   double dayToSectionExtent(int day, double itemExtent, double headerExtent) {
-    final tracksCount = historyMap.valueRaw[day]?.length ?? 0;
+    final tracksCount = historyMap.value[day]?.length ?? 0;
     return headerExtent + (tracksCount * itemExtent);
   }
 
@@ -82,9 +82,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final daysToScroll = daysKeys.length + 1;
     int itemsToScroll = 0;
     daysKeys.loop((e) {
-      itemsToScroll += historyMap.valueRaw[e]?.length ?? 0;
+      itemsToScroll += historyMap.value[e]?.length ?? 0;
     });
-    final itemSmallList = historyMap.valueRaw[listenMS.toDaysSince1970()]!;
+    final itemSmallList = historyMap.value[listenMS.toDaysSince1970()]!;
     final indexOfSmallList = itemSmallList.indexWhere((element) => element.dateTimeAdded.millisecondsSinceEpoch == listenMS);
     itemsToScroll += indexOfSmallList;
     itemsToScroll -= extraItemsOffset;
@@ -127,7 +127,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (inDays.isNotEmpty) {
       for (int i = 0; i < inDays.length; i++) {
         final day = inDays[i];
-        final trs = historyMap.valueRaw[day];
+        final trs = historyMap.value[day];
         if (trs != null) {
           trs.removeDuplicates();
         }
@@ -149,7 +149,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (daysToSort != null) {
       for (int i = 0; i < daysToSort.length; i++) {
         final day = daysToSort[i];
-        final trs = historyMap.valueRaw[day];
+        final trs = historyMap.value[day];
         if (trs != null) {
           sortTheseTracks(trs);
         }
@@ -166,7 +166,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final daysToSave = <int>[];
     tracksWithDates.loop((twd) {
       final day = twd.dateTimeAdded.toDaysSince1970();
-      final didRemove = historyMap.valueRaw[day]?.remove(twd) ?? false;
+      final didRemove = historyMap.value[day]?.remove(twd) ?? false;
       if (didRemove) {
         daysToSave.add(day);
         topTracksMapListens[mainItemToSubItem(twd)]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
@@ -365,7 +365,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       daysToSave.removeDuplicates();
       for (int i = 0; i < daysToSave.length; i++) {
         final day = daysToSave[i];
-        final trs = historyMap.valueRaw[day];
+        final trs = historyMap.value[day];
         try {
           if (trs == null) {
             printy('couldn\'t find [dayToSave] inside [historyMap]', isError: true);
