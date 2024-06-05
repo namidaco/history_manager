@@ -1,4 +1,4 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, avoid_rx_value_getter_outside_obx
 
 import 'dart:async';
 import 'dart:collection';
@@ -116,6 +116,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     }
     final daysToSave = addTracksToHistoryOnly(tracks);
     updateMostPlayedPlaylist(tracks);
+    historyMap.refresh();
     await saveHistoryToStorage(daysToSave);
   }
 
@@ -128,45 +129,43 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final daysToSave = <int>[];
     final map = historyMap.value;
     bool addedNewDay = false;
-    totalHistoryItemsCount.execute(
-      (totalItemsCount) {
-        tracks.loop((twd) {
-          final day = twd.dateTimeAdded.toDaysSince1970();
-          daysToSave.add(day);
-          if (map.containsKey(day)) {
-            map[day]!.insert(0, twd);
-          } else {
-            map[day] = <T>[twd];
-            addedNewDay = true;
-          }
-          totalItemsCount++;
-        });
-      },
-    );
+    int totalAdded = 0;
+    tracks.loop((twd) {
+      final day = twd.dateTimeAdded.toDaysSince1970();
+      daysToSave.add(day);
+      if (map.containsKey(day)) {
+        map[day]!.insert(0, twd);
+      } else {
+        map[day] = <T>[twd];
+        addedNewDay = true;
+      }
+      totalAdded++;
+    });
+
+    if (totalAdded > 0) totalHistoryItemsCount.value += totalAdded;
     if (addedNewDay) modifiedDays.refresh();
     return daysToSave;
   }
 
   void removeDuplicatedItems([List<int> inDays = const []]) {
     final map = historyMap.value;
-    totalHistoryItemsCount.execute(
-      (totalItemsCount) {
-        if (inDays.isNotEmpty) {
-          for (int i = 0; i < inDays.length; i++) {
-            final day = inDays[i];
-            final trs = map[day];
-            if (trs != null) {
-              totalItemsCount -= trs.removeDuplicates();
-            }
-          }
-        } else {
-          map.forEach((key, value) {
-            totalItemsCount -= value.removeDuplicates();
-          });
-        }
-      },
-    );
+    int totalRemoved = 0;
 
+    if (inDays.isNotEmpty) {
+      for (int i = 0; i < inDays.length; i++) {
+        final day = inDays[i];
+        final trs = map[day];
+        if (trs != null) {
+          totalRemoved -= trs.removeDuplicates();
+        }
+      }
+    } else {
+      map.forEach((key, value) {
+        totalRemoved -= value.removeDuplicates();
+      });
+    }
+
+    if (totalRemoved > 0) totalHistoryItemsCount.value -= totalRemoved;
     historyMap.refresh();
   }
 
@@ -197,19 +196,23 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   Future<void> removeTracksFromHistory(List<T> tracksWithDates) async {
     final daysToSave = <int>[];
     final map = historyMap.value;
-    totalHistoryItemsCount.execute((totalItemsCount) {
-      tracksWithDates.loop((twd) {
-        final day = twd.dateTimeAdded.toDaysSince1970();
-        final didRemove = map[day]?.remove(twd) ?? false;
-        if (didRemove) {
-          daysToSave.add(day);
-          topTracksMapListens[mainItemToSubItem(twd)]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
-          totalItemsCount--;
-        }
-      });
+    int totalRemoved = 0;
+
+    tracksWithDates.loop((twd) {
+      final day = twd.dateTimeAdded.toDaysSince1970();
+      final didRemove = map[day]?.remove(twd) ?? false;
+      if (didRemove) {
+        daysToSave.add(day);
+        topTracksMapListens[mainItemToSubItem(twd)]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
+        totalRemoved++;
+      }
     });
 
-    await saveHistoryToStorage(daysToSave);
+    if (totalRemoved > 0) {
+      totalHistoryItemsCount.value -= totalRemoved;
+      historyMap.refresh();
+      await saveHistoryToStorage(daysToSave);
+    }
   }
 
   Future<void> replaceTheseTracksInHistory(
@@ -226,8 +229,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         onMatch: () => daysToSave.add(day),
       );
     });
-    await saveHistoryToStorage(daysToSave);
+    historyMap.refresh();
     updateMostPlayedPlaylist();
+    await saveHistoryToStorage(daysToSave);
   }
 
   /// Most Played Playlist, relies totally on History Playlist.
@@ -425,7 +429,6 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       });
     }
     if (removedDay) modifiedDays.refresh();
-    historyMap.refresh();
   }
 
   Future<void> prepareHistoryFile() async {
@@ -433,6 +436,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     historyMap.value = res.historyMap;
     topTracksMapListens.value = res.topItems;
     totalHistoryItemsCount.value = res.totalItemsCount;
+    modifiedDays.refresh();
     updateTempMostPlayedPlaylist();
     // Adding tracks that were rejected by [addToHistory] since history wasn't fully loaded.
     if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
