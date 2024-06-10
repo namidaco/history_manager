@@ -81,8 +81,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   late final ScrollController scrollController = ScrollController();
-  late final Rxn<int> indexToHighlight = Rxn<int>();
-  late final Rxn<int> dayOfHighLight = Rxn<int>();
+  late final highlightedItem = Rxn<HistoryScrollInfo>();
 
   HistoryScrollInfo getListenScrollPosition({
     required final int listenMS,
