@@ -42,6 +42,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   final totalHistoryItemsCount = (-1).obs;
   final modifiedDays = Rxn<void>();
+  final latestUpdatedMostPlayedItem = Rxn<E>();
+  void Function()? onTopItemsMapModified;
 
   Iterable<T> get historyTracks sync* {
     final map = historyMap.value;
@@ -202,7 +204,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       final didRemove = map[day]?.remove(twd) ?? false;
       if (didRemove) {
         daysToSave.add(day);
-        topTracksMapListens[mainItemToSubItem(twd)]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
+        var subitem = mainItemToSubItem(twd);
+        topTracksMapListens[subitem]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
+        latestUpdatedMostPlayedItem.value = subitem;
         totalRemoved++;
       }
     });
@@ -258,7 +262,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     if (tracksWithDate != null) {
       tracksWithDate.loop((twd) {
-        topTracksMapListens.addForce(mainItemToSubItem(twd), twd.dateTimeAdded.millisecondsSinceEpoch);
+        var subitem = mainItemToSubItem(twd);
+        topTracksMapListens.addForce(subitem, twd.dateTimeAdded.millisecondsSinceEpoch);
+        latestUpdatedMostPlayedItem.value = subitem;
       });
 
       sortAndUpdateMap(topTracksMapListens.value);
@@ -275,6 +281,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       }
 
       sortAndUpdateMap(tempMap, mapToUpdate: topTracksMapListens);
+
+      onTopItemsMapModified?.call();
     }
   }
 
@@ -436,6 +444,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     topTracksMapListens.value = res.topItems;
     totalHistoryItemsCount.value = res.totalItemsCount;
     modifiedDays.refresh();
+    onTopItemsMapModified?.call();
     updateTempMostPlayedPlaylist();
     // Adding tracks that were rejected by [addToHistory] since history wasn't fully loaded.
     if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
