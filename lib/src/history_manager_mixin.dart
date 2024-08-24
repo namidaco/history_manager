@@ -304,15 +304,17 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       mptr: mptr,
       isStartOfDay: isStartOfDay,
       customDate: customDateRange,
+      mainItemToSubItem: mainItemToSubItem,
     );
 
     topTracksMapListensTemp.assignAllEntries(sortedEntries);
   }
 
-  List<MapEntry<E, List<int>>> getMostListensInTimeRange({
+  List<MapEntry<E2, List<int>>> getMostListensInTimeRange<E2>({
     required MostPlayedTimeRange mptr,
     required bool isStartOfDay,
     DateRange? customDate,
+    required E2 Function(T item) mainItemToSubItem,
   }) {
     final timeNow = DateTime.now();
 
@@ -351,7 +353,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       removeDuplicates: false,
     );
 
-    final Map<E, List<int>> tempMap = <E, List<int>>{};
+    final tempMap = <E2, List<int>>{};
 
     betweenDates.loop((t) {
       tempMap.addForce(mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
