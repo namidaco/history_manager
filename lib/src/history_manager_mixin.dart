@@ -376,7 +376,6 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return sortedEntries;
   }
 
-  /// if [maxCount == null], it will return all available tracks
   List<T> generateTracksFromHistoryDates(DateTime? oldestDate, DateTime? newestDate, {bool removeDuplicates = true}) {
     if (oldestDate == null || newestDate == null) return [];
 
