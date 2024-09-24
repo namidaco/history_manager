@@ -157,12 +157,12 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         final day = inDays[i];
         final trs = map[day];
         if (trs != null) {
-          totalRemoved -= trs.removeDuplicates();
+          totalRemoved += trs.removeDuplicates();
         }
       }
     } else {
       map.forEach((key, value) {
-        totalRemoved -= value.removeDuplicates();
+        totalRemoved += value.removeDuplicates();
       });
     }
 
