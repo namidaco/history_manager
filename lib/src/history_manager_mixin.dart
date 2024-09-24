@@ -67,7 +67,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   T? get newestTrackR => historyMap.valueR.values.firstOrNull?.firstOrNull;
   Iterable<int> get historyDaysR => historyMap.valueR.keys;
 
-  /// History tracks mapped by `days since epoch`.
+  /// History tracks mapped by `days since 1970`.
   ///
   /// Sorted by newest date, i.e. newest list would be the first.
   ///

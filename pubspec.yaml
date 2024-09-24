@@ -1,6 +1,6 @@
 name: history_manager
-description: A new Flutter package project.
-version: 1.0.5
+description: Simple & Efficient history tracker dart mixin.
+version: 1.0.6
 homepage:
 publish_to: none
 
