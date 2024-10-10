@@ -27,9 +27,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   String get HISTORY_DIRECTORY;
 
-  MostPlayedTimeRange get currentMostPlayedTimeRange;
-  DateRange get mostPlayedCustomDateRange;
-  bool get mostPlayedCustomIsStartOfDay;
+  Rx<MostPlayedTimeRange> get currentMostPlayedTimeRange;
+  Rx<DateRange> get mostPlayedCustomDateRange;
+  Rx<bool> get mostPlayedCustomIsStartOfDay;
 
   double daysToSectionExtent(List<int> days);
 
@@ -77,9 +77,14 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   final RxMap<E, List<int>> topTracksMapListens = <E, List<int>>{}.obs;
   final RxMap<E, List<int>> topTracksMapListensTemp = <E, List<int>>{}.obs;
   Iterable<E> get currentMostPlayedTracks => currentTopTracksMapListens.keys;
-  RxMap<E, List<int>> get currentTopTracksMapListens {
-    final isAll = currentMostPlayedTimeRange == MostPlayedTimeRange.allTime;
-    return isAll ? topTracksMapListens : topTracksMapListensTemp;
+  Map<E, List<int>> get currentTopTracksMapListens {
+    final isAll = currentMostPlayedTimeRange.value == MostPlayedTimeRange.allTime;
+    return isAll ? topTracksMapListens.value : topTracksMapListensTemp.value;
+  }
+
+  Map<E, List<int>> get currentTopTracksMapListensR {
+    final isAll = currentMostPlayedTimeRange.valueR == MostPlayedTimeRange.allTime;
+    return isAll ? topTracksMapListens.valueR : topTracksMapListensTemp.valueR;
   }
 
   late final ScrollController scrollController = ScrollController();
@@ -291,23 +296,24 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     MostPlayedTimeRange? mptr,
     bool? isStartOfDay,
   }) {
-    mptr ??= currentMostPlayedTimeRange;
-    customDateRange ??= mostPlayedCustomDateRange;
-    isStartOfDay ??= mostPlayedCustomIsStartOfDay;
+    mptr ??= currentMostPlayedTimeRange.value;
+    customDateRange ??= mostPlayedCustomDateRange.value;
+    isStartOfDay ??= mostPlayedCustomIsStartOfDay.value;
 
     if (mptr == MostPlayedTimeRange.allTime) {
-      topTracksMapListensTemp.clear();
-      return;
+      topTracksMapListensTemp.value.clear();
+    } else {
+      final sortedEntries = getMostListensInTimeRange(
+        mptr: mptr,
+        isStartOfDay: isStartOfDay,
+        customDate: customDateRange,
+        mainItemToSubItem: mainItemToSubItem,
+      );
+      topTracksMapListensTemp.value.assignAllEntries(sortedEntries);
     }
 
-    final sortedEntries = getMostListensInTimeRange(
-      mptr: mptr,
-      isStartOfDay: isStartOfDay,
-      customDate: customDateRange,
-      mainItemToSubItem: mainItemToSubItem,
-    );
-
-    topTracksMapListensTemp.assignAllEntries(sortedEntries);
+    topTracksMapListens.refresh();
+    topTracksMapListensTemp.refresh();
   }
 
   List<MapEntry<E2, List<int>>> getMostListensInTimeRange<E2>({
