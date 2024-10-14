@@ -82,9 +82,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return isAll ? topTracksMapListens.value : topTracksMapListensTemp.value;
   }
 
-  Map<E, List<int>> get currentTopTracksMapListensR {
-    final isAll = currentMostPlayedTimeRange.valueR == MostPlayedTimeRange.allTime;
-    return isAll ? topTracksMapListens.valueR : topTracksMapListensTemp.valueR;
+  RxMap<E, List<int>> currentTopTracksMapListensReactive(MostPlayedTimeRange currentTimeRange) {
+    final isAll = currentTimeRange == MostPlayedTimeRange.allTime;
+    return isAll ? topTracksMapListens : topTracksMapListensTemp;
   }
 
   late final ScrollController scrollController = ScrollController();
