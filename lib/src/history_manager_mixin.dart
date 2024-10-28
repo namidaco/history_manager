@@ -147,21 +147,28 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// By using this instead of [addTracksToHistory], you gurantee that you WILL call:
   /// [updateMostPlayedPlaylist], [sortHistoryTracks], [saveHistoryToStorage].
   /// Use this ONLY when continuously adding large number of tracks in a short span, such as adding from youtube or lastfm history.
-  List<int> addTracksToHistoryOnly(List<T> tracks) {
+  List<int> addTracksToHistoryOnly(List<T> tracks, {bool preventDuplicate = false}) {
     final daysToSave = <int>[];
     final map = historyMap.value;
     bool addedNewDay = false;
     int totalAdded = 0;
     tracks.loop((twd) {
       final day = twd.dateTimeAdded.toDaysSince1970();
-      daysToSave.add(day);
-      if (map.containsKey(day)) {
-        map[day]!.insert(0, twd);
+      final tracks = map[day];
+      if (tracks != null) {
+        if (preventDuplicate && tracks.contains(twd)) {
+          // dont add
+        } else {
+          daysToSave.add(day);
+          tracks.insert(0, twd);
+          totalAdded++;
+        }
       } else {
+        daysToSave.add(day);
         map[day] = <T>[twd];
         addedNewDay = true;
+        totalAdded++;
       }
-      totalAdded++;
     });
 
     if (totalAdded > 0) totalHistoryItemsCount.value += totalAdded;
