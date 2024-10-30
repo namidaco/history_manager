@@ -90,20 +90,21 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   late final ScrollController scrollController = ScrollController();
   late final highlightedItem = Rxn<HistoryScrollInfo>();
 
-  int? currentScrollPositionToDay(double itemExtent, double headerExtent) {
-    final offsetPre = scrollController.positions.lastOrNull?.pixels;
+  int? currentScrollPositionToDay(double itemExtent, double headerExtent, {double topPadding = 0.0}) {
+    double? offsetPre = scrollController.positions.lastOrNull?.pixels;
     if (offsetPre == null || offsetPre <= 0) return null;
+    offsetPre -= topPadding;
     double offsetToCover = 0;
-    int? previousDay;
+    int? currentDay;
     for (final e in historyMap.value.entries) {
+      currentDay = e.key;
       offsetToCover += headerExtent;
       if (offsetToCover >= offsetPre) break;
       final tracksCount = e.value.length;
       offsetToCover += tracksCount * itemExtent;
       if (offsetToCover >= offsetPre) break;
-      previousDay = e.key;
     }
-    return previousDay;
+    return currentDay;
   }
 
   HistoryScrollInfo getListenScrollPosition({
