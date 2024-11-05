@@ -177,7 +177,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return daysToSave;
   }
 
-  void removeDuplicatedItems([List<int> inDays = const []]) {
+  int removeDuplicatedItems([List<int> inDays = const []]) {
     final map = historyMap.value;
     int totalRemoved = 0;
 
@@ -197,6 +197,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     if (totalRemoved > 0) totalHistoryItemsCount.value -= totalRemoved;
     historyMap.refresh();
+    return totalRemoved;
   }
 
   /// Sorts each [historyMap]'s value by newest.
