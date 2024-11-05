@@ -119,7 +119,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       itemsToScroll += historyMap.value[e]?.length ?? 0;
     });
     final itemSmallList = historyMap.value[listenMS.toDaysSince1970()]!;
-    final indexOfSmallList = itemSmallList.indexWhere((element) => element.dateTimeAdded.millisecondsSinceEpoch == listenMS);
+    final indexOfSmallList = itemSmallList.indexWhere((element) => element.dateAddedMS == listenMS);
     itemsToScroll += indexOfSmallList;
     itemsToScroll -= extraItemsOffset;
 
@@ -154,7 +154,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     bool addedNewDay = false;
     int totalAdded = 0;
     tracks.loop((twd) {
-      final day = twd.dateTimeAdded.toDaysSince1970();
+      final day = twd.dateAddedMS.toDaysSince1970();
       final tracks = map[day];
       if (tracks != null) {
         if (preventDuplicate && tracks.contains(twd)) {
@@ -204,7 +204,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   ///
   /// Providing [daysToSort] will sort these entries only.
   void sortHistoryTracks([List<int>? daysToSort]) {
-    void sortTheseTracks(List<T> tracks) => tracks.sortByReverse((e) => e.dateTimeAdded.millisecondsSinceEpoch);
+    void sortTheseTracks(List<T> tracks) => tracks.sortByReverse((e) => e.dateAddedMS);
 
     final map = historyMap.value;
 
@@ -230,12 +230,12 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     int totalRemoved = 0;
 
     tracksWithDates.loop((twd) {
-      final day = twd.dateTimeAdded.toDaysSince1970();
+      final day = twd.dateAddedMS.toDaysSince1970();
       final didRemove = map[day]?.remove(twd) ?? false;
       if (didRemove) {
         daysToSave.add(day);
         var subitem = mainItemToSubItem(twd);
-        topTracksMapListens[subitem]?.remove(twd.dateTimeAdded.millisecondsSinceEpoch);
+        topTracksMapListens[subitem]?.remove(twd.dateAddedMS);
         latestUpdatedMostPlayedItem.value = subitem;
         totalRemoved++;
       }
@@ -293,7 +293,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (tracksWithDate != null) {
       tracksWithDate.loop((twd) {
         var subitem = mainItemToSubItem(twd);
-        topTracksMapListens.addForce(subitem, twd.dateTimeAdded.millisecondsSinceEpoch);
+        topTracksMapListens.addForce(subitem, twd.dateAddedMS);
         latestUpdatedMostPlayedItem.value = subitem;
       });
 
@@ -302,7 +302,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       final Map<E, List<int>> tempMap = <E, List<int>>{};
 
       for (final t in historyTracks) {
-        tempMap.addForce(mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
+        tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
       }
 
       /// Sorting dates
@@ -387,7 +387,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final tempMap = <E2, List<int>>{};
 
     betweenDates.loop((t) {
-      tempMap.addForce(mainItemToSubItem(t), t.dateTimeAdded.millisecondsSinceEpoch);
+      tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
     });
 
     for (final entry in tempMap.values) {

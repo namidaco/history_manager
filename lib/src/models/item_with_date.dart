@@ -1,3 +1,3 @@
 abstract interface class ItemWithDate {
-  DateTime get dateTimeAdded;
+  int get dateAddedMS;
 }
