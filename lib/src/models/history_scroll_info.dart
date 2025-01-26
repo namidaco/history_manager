@@ -13,4 +13,8 @@ class HistoryScrollInfo {
     required this.itemsToScroll,
     required this.daysToScroll,
   });
+
+  double toScrollOffset(double itemHeight, double headerHeight) {
+    return (itemsToScroll * itemHeight) + (daysToScroll * headerHeight);
+  }
 }
