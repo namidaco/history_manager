@@ -92,7 +92,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   int? currentScrollPositionToDay(double itemExtent, double headerExtent, {double topPadding = 0.0}) {
     double? offsetPre = scrollController.positions.lastOrNull?.pixels;
-    if (offsetPre == null || offsetPre <= 0) return null;
+    if (offsetPre == null || offsetPre <= 0) {
+      final newestDay = historyMap.value.keys.firstOrNull;
+      return newestDay;
+    }
     offsetPre -= topPadding;
     double offsetToCover = 0;
     int? currentDay;
