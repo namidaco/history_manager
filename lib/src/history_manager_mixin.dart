@@ -38,11 +38,13 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return headerExtent + (tracksCount * itemExtent);
   }
 
+  static int dayToMilliseconds(int day) => day * 24 * 60 * 60 * 1000;
+
   List<int> getHistoryYears() {
     final newestDaySinceEpoch = historyMap.value.keys.firstOrNull;
     final oldestDaySinceEpoch = historyMap.value.keys.lastOrNull;
-    final newestYear = newestDaySinceEpoch == null ? 0 : DateTime.fromMillisecondsSinceEpoch(newestDaySinceEpoch * 24 * 60 * 60 * 1000).year;
-    final oldestYear = oldestDaySinceEpoch == null ? 0 : DateTime.fromMillisecondsSinceEpoch(oldestDaySinceEpoch * 24 * 60 * 60 * 1000).year;
+    final newestYear = newestDaySinceEpoch == null ? 0 : DateTime.fromMillisecondsSinceEpoch(dayToMilliseconds(newestDaySinceEpoch)).year;
+    final oldestYear = oldestDaySinceEpoch == null ? 0 : DateTime.fromMillisecondsSinceEpoch(dayToMilliseconds(oldestDaySinceEpoch)).year;
 
     final years = <int>[];
     final diff = (newestYear - oldestYear).abs();
