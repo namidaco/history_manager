@@ -48,9 +48,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     final years = <int>[];
     final diff = (newestYear - oldestYear).abs();
-    for (int i = 1; i <= diff; i++) {
+    for (int i = 0; i <= diff; i++) {
       years.add(newestYear - i);
     }
+    years.remove(0);
     return years;
   }
 
