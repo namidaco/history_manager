@@ -4,11 +4,14 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
-import 'package:dart_extensions/dart_extensions.dart';
 import 'package:flutter/material.dart';
+
+import 'package:dart_extensions/dart_extensions.dart';
+import 'package:nampack/reactive/reactive.dart';
+
 import 'package:history_manager/src/models/history_prepare_info.dart';
 import 'package:history_manager/src/models/history_scroll_info.dart';
-import 'package:nampack/reactive/reactive.dart';
+import 'package:history_manager/src/models/value_sorted_map.dart';
 
 import 'enums.dart';
 import 'models/date_range.dart';
@@ -91,15 +94,15 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// For each List, the tracks are added to the first index, i.e. newest track would be the first.
   final Rx<SplayTreeMap<int, List<T>>> historyMap = SplayTreeMap<int, List<T>>((date1, date2) => date2.compareTo(date1)).obs;
 
-  final RxMap<E, List<int>> topTracksMapListens = <E, List<int>>{}.obs;
-  final RxMap<E, List<int>> topTracksMapListensTemp = <E, List<int>>{}.obs;
-  Iterable<E> get currentMostPlayedTracks => currentTopTracksMapListens.keys;
-  Map<E, List<int>> get currentTopTracksMapListens {
+  final topTracksMapListens = ListensSortedMap<E>().obs;
+  final topTracksMapListensTemp = ListensSortedMap<E>().obs;
+  Iterable<E> get currentMostPlayedTracks => currentTopTracksMapListens.keysSortedByValue;
+  ListensSortedMap<E> get currentTopTracksMapListens {
     final isAll = currentMostPlayedTimeRange.value == MostPlayedTimeRange.allTime;
     return isAll ? topTracksMapListens.value : topTracksMapListensTemp.value;
   }
 
-  RxMap<E, List<int>> currentTopTracksMapListensReactive(MostPlayedTimeRange currentTimeRange) {
+  Rx<ListensSortedMap<E>> currentTopTracksMapListensReactive(MostPlayedTimeRange currentTimeRange) {
     final isAll = currentTimeRange == MostPlayedTimeRange.allTime;
     return isAll ? topTracksMapListens : topTracksMapListensTemp;
   }
@@ -255,7 +258,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       if (didRemove) {
         daysToSave.add(day);
         var subitem = mainItemToSubItem(twd);
-        topTracksMapListens[subitem]?.remove(twd.dateAddedMS);
+        topTracksMapListens.value.removeElement(subitem, twd.dateAddedMS);
         latestUpdatedMostPlayedItem.value = subitem;
         totalRemoved++;
       }
@@ -264,6 +267,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (totalRemoved > 0) {
       totalHistoryItemsCount.value -= totalRemoved;
       historyMap.refresh();
+      topTracksMapListens.refresh();
       await saveHistoryToStorage(daysToSave);
     }
   }
@@ -290,34 +294,12 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// Most Played Playlist, relies totally on History Playlist.
   /// Sending [track && dateTimeAdded] just adds it to the map and sort, it won't perform a re-lookup from history.
   void updateMostPlayedPlaylist([List<T>? tracksWithDate]) {
-    void sortAndUpdateMap(Map<E, List<int>> unsortedMap, {RxMap<E, List<int>>? mapToUpdate}) {
-      final sortedEntries = unsortedMap.entries.toList()
-        ..sort((a, b) {
-          final compare = b.value.length.compareTo(a.value.length);
-          if (compare == 0) {
-            final lastListenB = b.value.lastOrNull ?? 0;
-            final lastListenA = a.value.lastOrNull ?? 0;
-            return lastListenB.compareTo(lastListenA);
-          }
-          return compare;
-        });
-      if (mapToUpdate != null) {
-        mapToUpdate.assignAllEntries(sortedEntries);
-      } else {
-        unsortedMap.assignAllEntries(sortedEntries);
-      }
-
-      updateTempMostPlayedPlaylist();
-    }
-
     if (tracksWithDate != null) {
       tracksWithDate.loop((twd) {
         var subitem = mainItemToSubItem(twd);
-        topTracksMapListens.addForce(subitem, twd.dateAddedMS);
+        topTracksMapListens.value.addElement(subitem, twd.dateAddedMS);
         latestUpdatedMostPlayedItem.value = subitem;
       });
-
-      sortAndUpdateMap(topTracksMapListens.value);
     } else {
       final Map<E, List<int>> tempMap = <E, List<int>>{};
 
@@ -325,15 +307,14 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
       }
 
-      /// Sorting dates
-      for (final entry in tempMap.values) {
-        entry.sort();
-      }
-
-      sortAndUpdateMap(tempMap, mapToUpdate: topTracksMapListens);
+      topTracksMapListens.value.assignAll(tempMap);
+      topTracksMapListens.value.sortAllInternalLists();
 
       onTopItemsMapModified?.call();
     }
+
+    topTracksMapListens.refresh();
+    updateTempMostPlayedPlaylist();
   }
 
   void updateTempMostPlayedPlaylist({

@@ -1,8 +1,10 @@
 import 'dart:collection';
 
+import 'package:history_manager/src/models/value_sorted_map.dart';
+
 class HistoryPrepareInfo<T, E> {
   final SplayTreeMap<int, List<T>> historyMap;
-  final Map<E, List<int>> topItems;
+  final ListensSortedMap<E> topItems;
   final int totalItemsCount;
 
   const HistoryPrepareInfo({
