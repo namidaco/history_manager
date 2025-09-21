@@ -335,14 +335,14 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         customDate: customDateRange,
         mainItemToSubItem: mainItemToSubItem,
       );
-      topTracksMapListensTemp.value.assignAllEntries(sortedEntries);
+      topTracksMapListensTemp.value = sortedEntries;
     }
 
     topTracksMapListens.refresh();
     topTracksMapListensTemp.refresh();
   }
 
-  List<MapEntry<E2, List<int>>> getMostListensInTimeRange<E2>({
+  ListensSortedMap<E2> getMostListensInTimeRange<E2>({
     required MostPlayedTimeRange mptr,
     required bool isStartOfDay,
     DateRange? customDate,
@@ -391,21 +391,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
     });
 
-    for (final entry in tempMap.values) {
-      entry.sort();
-    }
-
-    final sortedEntries = tempMap.entries.toList()
-      ..sort((a, b) {
-        final compare = b.value.length.compareTo(a.value.length);
-        if (compare == 0) {
-          final lastListenB = b.value.lastOrNull ?? 0;
-          final lastListenA = a.value.lastOrNull ?? 0;
-          return lastListenB.compareTo(lastListenA);
-        }
-        return compare;
-      });
-    return sortedEntries;
+    final topItems = ListensSortedMap<E2>();
+    topItems.assignAll(tempMap);
+    topItems.sortAllInternalLists();
+    return topItems;
   }
 
   List<T> generateTracksFromHistoryDates(DateTime? oldestDate, DateTime? newestDate, {bool removeDuplicates = true}) {
