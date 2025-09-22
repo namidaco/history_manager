@@ -2,6 +2,7 @@ import 'dart:collection';
 
 class ListensSortedMap<K> {
   Iterable<K> get keysSortedByValue => _entries.map((element) => element.key);
+  Iterable<MapEntry<K, List<int>>> get entriesSortedByValue => keysSortedByValue.map((e) => MapEntry(e, _map[e] ?? []));
   int get length => _map.length;
   List<int>? operator [](K key) => _map[key];
 
