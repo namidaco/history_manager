@@ -200,7 +200,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return daysToSave;
   }
 
-  int removeDuplicatedItems([List<int> inDays = const []]) {
+  int removeDuplicatedItemsAllowMultiSourceDuplicates([List<int> inDays = const []]) {
     final map = historyMap.value;
     int totalRemoved = 0;
 
@@ -221,6 +221,83 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (totalRemoved > 0) totalHistoryItemsCount.value -= totalRemoved;
     historyMap.refresh();
     return totalRemoved;
+  }
+
+  int removeDuplicatedItems([List<int> inDays = const []]) {
+    final map = historyMap.value;
+    int totalRemoved = 0;
+
+    if (inDays.isNotEmpty) {
+      for (int i = 0; i < inDays.length; i++) {
+        final day = inDays[i];
+        final trs = map[day];
+        if (trs != null) {
+          totalRemoved += _removeDuplicatesFromList(trs);
+        }
+      }
+    } else {
+      map.forEach((key, value) {
+        totalRemoved += _removeDuplicatesFromList(value);
+      });
+    }
+
+    if (totalRemoved > 0) totalHistoryItemsCount.value -= totalRemoved;
+    historyMap.refresh();
+    return totalRemoved;
+  }
+
+  // this whole mess is to prevent duplicates caused by namida reporting listens to official yt.
+  // after importing yt takeouts, there will be listen duplicates with time difference (namida listen date vs yt listen date)
+  int _removeDuplicatesFromList(List<T> tracks) {
+    if (tracks.isEmpty) return 0;
+
+    const millisecondsToIgnore = 280 * 1000;
+    final lengthBefore = tracks.length;
+    final alrExistingMap = <int, List<(T, int)>>{};
+    final indicesToRemove = <int>[];
+    bool shouldRemove(T tr, int i, int dateNormalized) {
+      final alrExistingOnes = alrExistingMap[dateNormalized];
+      if (alrExistingOnes != null &&
+          alrExistingOnes.any(
+            (existingInfo) {
+              final existing = existingInfo.$1;
+              if (existing == tr) return true;
+
+              final existingSub = mainItemToSubItem(existing);
+              final trSub = mainItemToSubItem(tr);
+              if (existingSub == trSub) {
+                if (existing.sourceNull == tr.sourceNull) {
+                  return false;
+                }
+                if (existing.sourceNull == null && tr.sourceNull != null) {
+                  tracks[existingInfo.$2] = tr; // replace the earlier track..
+                  return true; // .. and remove current
+                } else if (existing.sourceNull != null) {
+                  return true;
+                }
+                return false;
+              }
+              return false;
+            },
+          )) {
+        return true;
+      }
+      return false;
+    }
+
+    for (var i = 0; i < tracks.length; i++) {
+      final tr = tracks[i];
+      final dateNormalized = tr.dateAddedMS ~/ millisecondsToIgnore;
+      if (shouldRemove(tr, i, dateNormalized)) {
+        indicesToRemove.add(i);
+      } else {
+        alrExistingMap[dateNormalized] ??= [];
+        alrExistingMap[dateNormalized]!.add((tr, i));
+      }
+    }
+    indicesToRemove.reverseLoop((item) => tracks.removeAt(item));
+    final lengthAfter = tracks.length;
+    return lengthBefore - lengthAfter;
   }
 
   /// Sorts each [historyMap]'s value by newest.
