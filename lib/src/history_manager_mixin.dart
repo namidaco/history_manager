@@ -246,6 +246,62 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return totalRemoved;
   }
 
+  Future<int> removeSourcesTracksFromHistory(List<TrackSource> sources, {bool removeMultiSourceDuplicates = false, DateTime? oldestDate, DateTime? newestDate}) async {
+    if (sources.isEmpty && removeMultiSourceDuplicates == false) return 0;
+
+    int totalRemoved = 0;
+    List<int>? daysToSave;
+
+    // -- remove all sources (i.e all history)
+    if (oldestDate == null && newestDate == null && sources.isEqualTo(TrackSource.values)) {
+      totalRemoved = totalHistoryItemsCount.value;
+      historyMap.value.clear();
+      daysToSave = null;
+    } else {
+      final daysToRemoveFrom = historyDays.toList();
+
+      final oldestDay = oldestDate?.toDaysSince1970();
+      final newestDay = newestDate?.toDaysSince1970();
+
+      if (oldestDay != null && newestDay == null) {
+        daysToRemoveFrom.retainWhere((day) => day >= oldestDay);
+      }
+      if (oldestDay == null && newestDay != null) {
+        daysToRemoveFrom.retainWhere((day) => day <= newestDay);
+      }
+
+      if (oldestDay != null && newestDay != null) {
+        daysToRemoveFrom.retainWhere((day) => day >= oldestDay && day <= newestDay);
+      }
+
+      // -- will loop the whole days.
+      /* if (oldestDay == null && newestDay == null) {} */
+
+      final checkSources = sources.isNotEmpty;
+      final history = historyMap.value;
+      daysToRemoveFrom.loop((d) {
+        final trs = history[d];
+        if (trs != null) {
+          if (checkSources) totalRemoved += trs.removeWhereWithDifference((twd) => sources.contains(twd.source));
+          if (removeMultiSourceDuplicates) totalRemoved += _removeDuplicatesFromList(trs);
+        }
+      });
+      daysToSave = daysToRemoveFrom;
+    }
+
+    if (totalRemoved > 0) {
+      totalHistoryItemsCount.value -= totalRemoved;
+      historyMap.refresh();
+      updateMostPlayedPlaylist();
+      await saveHistoryToStorage(daysToSave);
+    } else if (daysToSave != null) {
+      // just in case its edited but `totalRemoved` uh
+      await saveHistoryToStorage(daysToSave);
+    }
+
+    return totalRemoved;
+  }
+
   // this whole mess is to prevent duplicates caused by namida reporting listens to official yt.
   // after importing yt takeouts, there will be listen duplicates with time difference (namida listen date vs yt listen date)
   int _removeDuplicatesFromList(List<T> tracks) {

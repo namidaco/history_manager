@@ -9,3 +9,10 @@ enum MostPlayedTimeRange {
   year,
   allTime,
 }
+
+enum TrackSource {
+  local, // local listen
+  youtube, // imported from yt takeout
+  youtubeMusic, // imported from yt takeout
+  lastfm, // imported from lastfm export
+}
