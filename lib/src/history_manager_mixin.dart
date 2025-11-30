@@ -325,6 +325,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
                 if (existing.sourceNull == tr.sourceNull) {
                   return false;
                 }
+                // -- maybe its better to reverse these null checks, as null source means local,
+                // -- which is most likely the actual source. but doing so will not work if T didnt save source
+                // -- bcz the other source is already null, so it ends up removing nothing
                 if (existing.sourceNull == null && tr.sourceNull != null) {
                   tracks[existingInfo.$2] = tr; // replace the earlier track..
                   return true; // .. and remove current
