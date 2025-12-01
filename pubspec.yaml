@@ -1,6 +1,6 @@
 name: history_manager
 description: Simple & Efficient history tracker dart mixin.
-version: 1.5.5
+version: 1.5.6
 homepage:
 publish_to: none
 

@@ -1,6 +1,6 @@
 import 'package:history_manager/history_manager.dart';
 
-abstract interface class ItemWithDate {
+mixin ItemWithDate {
   int get dateAddedMS;
   TrackSource? get sourceNull;
 
