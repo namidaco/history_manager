@@ -412,8 +412,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     bool Function(T e) test,
     T Function(T old) newElement,
   ) async {
-    final daysToSave = <int>[];
-    historyMap.value.entries.toList().loop((entry) {
+    final daysToSave = <int>{};
+    for (final entry in historyMap.value.entries) {
       final day = entry.key;
       final trs = entry.value;
       trs.replaceWhere(
@@ -421,10 +421,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         newElement,
         onMatch: () => daysToSave.add(day),
       );
-    });
+    }
     historyMap.refresh();
     updateMostPlayedPlaylist();
-    await saveHistoryToStorage(daysToSave);
+    await saveHistoryToStorage(daysToSave.toList());
   }
 
   /// Most Played Playlist, relies totally on History Playlist.
