@@ -155,11 +155,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> addTracksToHistory(List<T> tracks) async {
-    if (isLoadingHistory || _isIdle) {
-      // after history full load, [addTracksToHistory] will be called to add tracks inside [_tracksToAddAfterHistoryLoad].
-      _tracksToAddAfterHistoryLoad.addAll(tracks);
-      return;
-    }
+    if (!isHistoryLoaded || _isIdle) await _historyAndIdleCompleter.future;
     final daysToSave = addTracksToHistoryOnly(tracks);
     updateMostPlayedPlaylist(tracks);
     historyMap.refresh();
@@ -604,12 +600,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     modifiedDays.refresh();
     onTopItemsMapModified?.call();
     updateTempMostPlayedPlaylist();
-    // Adding tracks that were rejected by [addToHistory] since history wasn't fully loaded.
-    if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
-      await addTracksToHistory(_tracksToAddAfterHistoryLoad);
-      _tracksToAddAfterHistoryLoad.clear();
-    }
-    if (!_historyAndMostPlayedLoad.isCompleted) _historyAndMostPlayedLoad.complete(true);
+    _historyAndIdleCompleter.completeIfWasnt(true);
   }
 
   /// Indicates wether the history should add items to the map normally.
@@ -617,27 +608,30 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// You should set this to true while modifying a copy of the history,
   /// and then setting it to false to re-add items that were waiting
   Future<void> setIdleStatus(bool idle) async {
+    // -- wait if was still loading
+    await _historyAndIdleCompleter.future;
+
     if (idle) {
       _isIdle = true;
+      _historyAndIdleCompleter = Completer<bool>();
     } else {
       _isIdle = false;
-      if (_tracksToAddAfterHistoryLoad.isNotEmpty) {
-        await addTracksToHistory(_tracksToAddAfterHistoryLoad);
-        _tracksToAddAfterHistoryLoad.clear();
-      }
+      _historyAndIdleCompleter.completeIfWasnt(true);
     }
   }
 
   bool _isIdle = false;
 
-  /// Used to add tracks that were rejected by [addToHistory] after full loading of history.
-  ///
-  /// This is an extremely rare case, would happen only if history loading took more than 20s. (min seconds to count a listen)
-  final List<T> _tracksToAddAfterHistoryLoad = <T>[];
   bool get isLoadingHistory => totalHistoryItemsCount.value == -1;
   bool get isLoadingHistoryR => totalHistoryItemsCount.valueR == -1;
 
-  final _historyAndMostPlayedLoad = Completer<bool>();
-  Future<bool> get waitForHistoryAndMostPlayedLoad => _historyAndMostPlayedLoad.future;
-  bool get isHistoryLoaded => _historyAndMostPlayedLoad.isCompleted;
+  var _historyAndIdleCompleter = Completer<bool>();
+  Future<bool> get waitForHistoryAndMostPlayedLoad => _historyAndIdleCompleter.future;
+  bool get isHistoryLoaded => _historyAndIdleCompleter.isCompleted;
+}
+
+extension<T> on Completer<T> {
+  void completeIfWasnt(FutureOr<T> value) {
+    if (isCompleted == false) complete(value);
+  }
 }
