@@ -134,21 +134,26 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     required final int listenMS,
     final int extraItemsOffset = 2,
   }) {
-    final daysKeys = historyDays.toList();
-    daysKeys.removeWhere((element) => element <= listenMS.toDaysSince1970());
-    final daysToScroll = daysKeys.length + 1;
+    final targetDay = listenMS.toDaysSince1970();
+
+    int daysToScroll = 0;
     int itemsToScroll = 0;
-    daysKeys.loop((e) {
-      itemsToScroll += historyMap.value[e]?.length ?? 0;
-    });
-    final itemSmallList = historyMap.value[listenMS.toDaysSince1970()]!;
+
+    for (final day in historyDays) {
+      if (day <= targetDay) break;
+      daysToScroll++;
+      itemsToScroll += historyMap.value[day]?.length ?? 0;
+    }
+    daysToScroll += 1;
+
+    final itemSmallList = historyMap.value[targetDay]!;
     final indexOfSmallList = itemSmallList.indexWhere((element) => element.dateAddedMS == listenMS);
     itemsToScroll += indexOfSmallList;
     itemsToScroll -= extraItemsOffset;
 
     return HistoryScrollInfo(
       indexOfSmallList: indexOfSmallList,
-      dayToHighLight: listenMS.toDaysSince1970(),
+      dayToHighLight: targetDay,
       itemsToScroll: itemsToScroll,
       daysToScroll: daysToScroll,
     );
@@ -474,6 +479,34 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     topTracksMapListensTemp.refresh();
   }
 
+  DateTime? _resolveOldDate(MostPlayedTimeRange mptr, DateTime timeNow, bool isStartOfDay, DateRange? customDate) {
+    if (isStartOfDay) {
+      return switch (mptr) {
+        MostPlayedTimeRange.allTime => null,
+        MostPlayedTimeRange.day => DateTime(timeNow.year, timeNow.month, timeNow.day),
+        MostPlayedTimeRange.day3 => DateTime(timeNow.year, timeNow.month, timeNow.day - 2),
+        MostPlayedTimeRange.week => DateTime(timeNow.year, timeNow.month, timeNow.day - 6),
+        MostPlayedTimeRange.month => DateTime(timeNow.year, timeNow.month),
+        MostPlayedTimeRange.month3 => DateTime(timeNow.year, timeNow.month - 2),
+        MostPlayedTimeRange.month6 => DateTime(timeNow.year, timeNow.month - 5),
+        MostPlayedTimeRange.year => DateTime(timeNow.year),
+        MostPlayedTimeRange.custom => customDate?.oldest,
+      };
+    } else {
+      return switch (mptr) {
+        MostPlayedTimeRange.allTime => null,
+        MostPlayedTimeRange.day => timeNow,
+        MostPlayedTimeRange.day3 => timeNow.subtract(const Duration(days: 3)),
+        MostPlayedTimeRange.week => timeNow.subtract(const Duration(days: 7)),
+        MostPlayedTimeRange.month => timeNow.subtract(const Duration(days: 30)),
+        MostPlayedTimeRange.month3 => timeNow.subtract(const Duration(days: 30 * 3)),
+        MostPlayedTimeRange.month6 => timeNow.subtract(const Duration(days: 30 * 6)),
+        MostPlayedTimeRange.year => timeNow.subtract(const Duration(days: 365)),
+        MostPlayedTimeRange.custom => customDate?.oldest,
+      };
+    }
+  }
+
   ListensSortedMap<E2> getMostListensInTimeRange<E2>({
     required MostPlayedTimeRange mptr,
     required bool isStartOfDay,
@@ -481,35 +514,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     required E2 Function(T item) mainItemToSubItem,
   }) {
     final timeNow = DateTime.now();
-
-    final varMapOldestDate = isStartOfDay
-        ? {
-            MostPlayedTimeRange.allTime: null,
-            MostPlayedTimeRange.day: DateTime(timeNow.year, timeNow.month, timeNow.day),
-            MostPlayedTimeRange.day3: DateTime(timeNow.year, timeNow.month, timeNow.day - 2),
-            MostPlayedTimeRange.week: DateTime(timeNow.year, timeNow.month, timeNow.day - 6),
-            MostPlayedTimeRange.month: DateTime(timeNow.year, timeNow.month),
-            MostPlayedTimeRange.month3: DateTime(timeNow.year, timeNow.month - 2),
-            MostPlayedTimeRange.month6: DateTime(timeNow.year, timeNow.month - 5),
-            MostPlayedTimeRange.year: DateTime(timeNow.year),
-            MostPlayedTimeRange.custom: customDate?.oldest,
-          }
-        : {
-            MostPlayedTimeRange.allTime: null,
-            MostPlayedTimeRange.day: DateTime.now(),
-            MostPlayedTimeRange.day3: timeNow.subtract(const Duration(days: 3)),
-            MostPlayedTimeRange.week: timeNow.subtract(const Duration(days: 7)),
-            MostPlayedTimeRange.month: timeNow.subtract(const Duration(days: 30)),
-            MostPlayedTimeRange.month3: timeNow.subtract(const Duration(days: 30 * 3)),
-            MostPlayedTimeRange.month6: timeNow.subtract(const Duration(days: 30 * 6)),
-            MostPlayedTimeRange.year: timeNow.subtract(const Duration(days: 365)),
-            MostPlayedTimeRange.custom: customDate?.oldest,
-          };
-
-    final map = {for (final e in MostPlayedTimeRange.values) e: varMapOldestDate[e]};
-
+    final oldDate = _resolveOldDate(mptr, timeNow, isStartOfDay, customDate);
     final newDate = mptr == MostPlayedTimeRange.custom ? customDate?.newest : timeNow;
-    final oldDate = map[mptr];
 
     final betweenDates = generateTracksFromHistoryDates(
       oldDate,
@@ -532,18 +538,18 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   List<T> generateTracksFromHistoryDates(DateTime? oldestDate, DateTime? newestDate, {bool removeDuplicates = true}) {
     if (oldestDate == null || newestDate == null) return [];
 
-    final tracksAvailable = <T>[];
-    final entries = historyMap.value.entries.toList();
-
     final oldestDay = oldestDate.toDaysSince1970();
     final newestDay = newestDate.toDaysSince1970();
 
-    entries.loop((entry) {
+    final tracksAvailable = <T>[];
+
+    for (final entry in historyMap.value.entries) {
       final day = entry.key;
-      if (day >= oldestDay && day <= newestDay) {
-        tracksAvailable.addAll(entry.value);
-      }
-    });
+      if (day > newestDay) continue;
+      if (day < oldestDay) break;
+      tracksAvailable.addAll(entry.value);
+    }
+
     if (removeDuplicates) {
       tracksAvailable.removeDuplicates(mainItemToSubItem);
     }
