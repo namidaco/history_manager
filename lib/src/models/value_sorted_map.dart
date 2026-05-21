@@ -1,8 +1,11 @@
 import 'dart:collection';
 
 class ListensSortedMap<K> {
+  Map<K, int> toCountOnly() => _map.map((key, value) => MapEntry(key, value.length));
+
   Iterable<K> get keysSortedByValue => _entries.map((element) => element.key);
   Iterable<MapEntry<K, List<int>>> get entriesSortedByValue => keysSortedByValue.map((e) => MapEntry(e, _map[e] ?? []));
+  Iterable<MapEntry<K, int>> get entriesSortedByValueCount => keysSortedByValue.map((e) => MapEntry(e, _map[e]?.length ?? 0));
   Iterable<List<int>> get values => keysSortedByValue.map((e) => _map[e] ?? []);
   int get length => _map.length;
   List<int>? operator [](K key) => _map[key];
