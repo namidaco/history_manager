@@ -206,8 +206,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     int totalRemoved = 0;
 
     if (inDays.isNotEmpty) {
-      for (int i = 0; i < inDays.length; i++) {
-        final day = inDays[i];
+      for (final day in inDays) {
         final trs = map[day];
         if (trs != null) {
           totalRemoved += trs.removeDuplicates();
@@ -229,8 +228,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     int totalRemoved = 0;
 
     if (inDays.isNotEmpty) {
-      for (int i = 0; i < inDays.length; i++) {
-        final day = inDays[i];
+      for (final day in inDays) {
         final trs = map[day];
         if (trs != null) {
           totalRemoved += _removeDuplicatesFromList(trs);
@@ -363,14 +361,13 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// Sorts each [historyMap]'s value by newest.
   ///
   /// Providing [daysToSort] will sort these entries only.
-  void sortHistoryTracks([List<int>? daysToSort]) {
+  void sortHistoryTracks([Iterable<int>? daysToSort]) {
     void sortTheseTracks(List<T> tracks) => tracks.sortByReverse((e) => e.dateAddedMS);
 
     final map = historyMap.value;
 
     if (daysToSort != null) {
-      for (int i = 0; i < daysToSort.length; i++) {
-        final day = daysToSort[i];
+      for (final day in daysToSort) {
         final trs = map[day];
         if (trs != null) {
           sortTheseTracks(trs);
@@ -572,8 +569,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     if (daysToSave != null) {
       daysToSave.removeDuplicates();
-      for (int i = 0; i < daysToSave.length; i++) {
-        final day = daysToSave[i];
+      for (final day in daysToSave) {
         final trs = map[day];
         try {
           if (trs == null) {
