@@ -4,10 +4,10 @@
 > - days are sorted decendingly as days since 1970 (newer at first)
 > - for each list, items are added to the first index, i.e. newest item would be the first.
 
-
 - see [history_controller.dart](https://github.com/namidaco/namida/blob/main/lib/controller/history_controller.dart) & [playlist_tracks_subpage.dart#L34](https://github.com/namidaco/namida/blob/2ef6cd749499332565fd46bb95bb84c571b676f9/lib/ui/pages/subpages/playlist_tracks_subpage.dart#L34) in namida to understand how to efficiently access, display & modify history.
 
 ### Example class
+
 ```dart
 // ignore_for_file: non_constant_identifier_names
 
@@ -28,7 +28,7 @@ class HistoryController with HistoryManager<TrackWithDate, Track> {
     final trackTileExtent = Dimensions.inst.trackTileItemExtent;
     const dayHeaderExtent = kHistoryDayHeaderHeightWithPadding;
     double total = 0;
-    days.loop((day) => total += dayToSectionExtent(day, trackTileExtent, dayHeaderExtent));
+    days.forEach((day) => total += dayToSectionExtent(day, trackTileExtent, dayHeaderExtent));
     return total;
   }
 
@@ -50,7 +50,7 @@ class HistoryController with HistoryManager<TrackWithDate, Track> {
           final response = f.readAsJsonSync();
           final dayOfTrack = int.parse(f.path.getFilenameWOExt);
           final listTracks = <TrackWithDate>[];
-          (response as List?)?.loop((e) {
+          (response as List?)?.forEach((e) {
             var twd = TrackWithDate.fromJson(e);
             listTracks.add(twd);
             tempMapTopItems.addForce(twd.track, twd.dateTimeAdded.millisecondsSinceEpoch);
@@ -106,8 +106,8 @@ class HistoryController with HistoryManager<TrackWithDate, Track> {
 
 ```
 
-
 ### Example Usage
+
 ```dart
 // initialize in main
 await HistoryController.inst.prepareHistoryFile();
@@ -119,6 +119,6 @@ final itemToAdd = TrackWithDate(
 await HistoryController.instance.addTracksToHistory([itemToAdd]);
 ```
 
-
 ### License
+
 Project is licensed under [GPL3](LICENSE)

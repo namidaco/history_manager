@@ -177,7 +177,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final map = historyMap.value;
     bool addedNewDay = false;
     int totalAdded = 0;
-    tracks.loop((twd) {
+    for (var twd in tracks) {
       final day = twd.dateAddedMS.toDaysSince1970();
       final tracks = map[day];
       if (tracks != null) {
@@ -194,7 +194,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         addedNewDay = true;
         totalAdded++;
       }
-    });
+    }
 
     if (totalAdded > 0) totalHistoryItemsCount.value += totalAdded;
     if (addedNewDay) modifiedDays.refresh();
@@ -278,13 +278,13 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
       final checkSources = sources.isNotEmpty;
       final history = historyMap.value;
-      daysToRemoveFrom.loop((d) {
+      for (var d in daysToRemoveFrom) {
         final trs = history[d];
         if (trs != null) {
           if (checkSources) totalRemoved += trs.removeWhereWithDifference((twd) => sources.contains(twd.source));
           if (removeMultiSourceDuplicates) totalRemoved += _removeDuplicatesFromList(trs);
         }
-      });
+      }
       daysToSave = daysToRemoveFrom;
     }
 
@@ -386,7 +386,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final map = historyMap.value;
     int totalRemoved = 0;
 
-    tracksWithDates.loop((twd) {
+    for (var twd in tracksWithDates) {
       final day = twd.dateAddedMS.toDaysSince1970();
       final didRemove = map[day]?.remove(twd) ?? false;
       if (didRemove) {
@@ -396,7 +396,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         latestUpdatedMostPlayedItem.value = subitem;
         totalRemoved++;
       }
-    });
+    }
 
     if (totalRemoved > 0) {
       totalHistoryItemsCount.value -= totalRemoved;
@@ -429,11 +429,11 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// Sending [track && dateTimeAdded] just adds it to the map and sort, it won't perform a re-lookup from history.
   void updateMostPlayedPlaylist([List<T>? tracksWithDate]) {
     if (tracksWithDate != null) {
-      tracksWithDate.loop((twd) {
+      for (var twd in tracksWithDate) {
         var subitem = mainItemToSubItem(twd);
         topTracksMapListens.value.addElement(subitem, twd.dateAddedMS);
         latestUpdatedMostPlayedItem.value = subitem;
-      });
+      }
     } else {
       final Map<E, List<int>> tempMap = <E, List<int>>{};
 
@@ -522,9 +522,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
     final tempMap = <E2, List<int>>{};
 
-    betweenDates.loop((t) {
+    for (var t in betweenDates) {
       tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
-    });
+    }
 
     final topItems = ListensSortedMap<E2>();
     topItems.assignAll(tempMap);
