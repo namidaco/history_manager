@@ -160,7 +160,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> addTracksToHistory(List<T> tracks) async {
-    if (!isHistoryLoaded || _isIdle) await _historyAndIdleCompleter.future;
+    if (!isHistoryLoaded) await _historyLoadCompleter.future;
+    if (_isIdle) await _idleCompleter.future;
     final daysToSave = addTracksToHistoryOnly(tracks);
     updateMostPlayedPlaylist(tracks);
     historyMap.refresh();
@@ -602,7 +603,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     modifiedDays.refresh();
     onTopItemsMapModified?.call();
     updateTempMostPlayedPlaylist();
-    _historyAndIdleCompleter.completeIfWasnt(true);
+    _historyLoadCompleter.completeIfWasnt(true);
   }
 
   /// Indicates wether the history should add items to the map normally.
@@ -611,14 +612,14 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// and then setting it to false to re-add items that were waiting
   Future<void> setIdleStatus(bool idle) async {
     // -- wait if was still loading
-    await _historyAndIdleCompleter.future;
+    await _historyLoadCompleter.future;
 
     if (idle) {
       _isIdle = true;
-      _historyAndIdleCompleter = Completer<bool>();
+      _idleCompleter = Completer<bool>();
     } else {
       _isIdle = false;
-      _historyAndIdleCompleter.completeIfWasnt(true);
+      _idleCompleter.completeIfWasnt(true);
     }
   }
 
@@ -627,9 +628,10 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   bool get isLoadingHistory => totalHistoryItemsCount.value == -1;
   bool get isLoadingHistoryR => totalHistoryItemsCount.valueR == -1;
 
-  var _historyAndIdleCompleter = Completer<bool>();
-  Future<bool> get waitForHistoryAndMostPlayedLoad => _historyAndIdleCompleter.future;
-  bool get isHistoryLoaded => _historyAndIdleCompleter.isCompleted;
+  final _historyLoadCompleter = Completer<bool>();
+  var _idleCompleter = Completer<bool>();
+  Future<bool> get waitForHistoryAndMostPlayedLoad => _historyLoadCompleter.future;
+  bool get isHistoryLoaded => _historyLoadCompleter.isCompleted;
 }
 
 extension<T> on Completer<T> {
