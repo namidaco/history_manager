@@ -164,7 +164,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     );
   }
 
-  Future<void> addTracksToHistory(List<T> tracks) async {
+  Future<void> addTracksToHistory(Iterable<T> tracks) async {
     if (!isHistoryLoaded) await _historyLoadCompleter.future;
     if (_isIdle) await _idleCompleter.future;
     final daysToSave = addTracksToHistoryOnly(tracks);
@@ -178,7 +178,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// By using this instead of [addTracksToHistory], you gurantee that you WILL call:
   /// [updateMostPlayedPlaylist], [sortHistoryTracks], [saveHistoryToStorage].
   /// Use this ONLY when continuously adding large number of tracks in a short span, such as adding from youtube or lastfm history.
-  List<int> addTracksToHistoryOnly(List<T> tracks, {bool preventDuplicate = false}) {
+  List<int> addTracksToHistoryOnly(Iterable<T> tracks, {bool preventDuplicate = false}) {
     final daysToSave = <int>[];
     final map = historyMap.value;
     bool addedNewDay = false;
@@ -207,7 +207,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return daysToSave;
   }
 
-  int removeDuplicatedItemsAllowMultiSourceDuplicates([List<int> inDays = const []]) {
+  int removeDuplicatedItemsAllowMultiSourceDuplicates([Iterable<int> inDays = const []]) {
     final map = historyMap.value;
     int totalRemoved = 0;
 
@@ -229,7 +229,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return totalRemoved;
   }
 
-  int removeDuplicatedItems([List<int> inDays = const []]) {
+  int removeDuplicatedItems([Iterable<int> inDays = const []]) {
     final map = historyMap.value;
     int totalRemoved = 0;
 
@@ -387,7 +387,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     historyMap.refresh();
   }
 
-  Future<void> removeTracksFromHistory(List<T> tracksWithDates) async {
+  Future<void> removeTracksFromHistory(Iterable<T> tracksWithDates) async {
     final daysToSave = <int>[];
     final map = historyMap.value;
     int totalRemoved = 0;
@@ -432,8 +432,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   /// Most Played Playlist, relies totally on History Playlist.
-  /// Sending [track && dateTimeAdded] just adds it to the map and sort, it won't perform a re-lookup from history.
-  void updateMostPlayedPlaylist([List<T>? tracksWithDate]) {
+  /// Sending [tracksWithDate] just adds it to the map and sort, it won't perform a re-lookup from history.
+  void updateMostPlayedPlaylist([Iterable<T>? tracksWithDate]) {
     if (tracksWithDate != null) {
       for (var twd in tracksWithDate) {
         var subitem = mainItemToSubItem(twd);
