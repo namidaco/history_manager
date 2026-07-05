@@ -482,10 +482,11 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     topTracksMapListensTemp.refresh();
   }
 
-  DateTime? _resolveOldDate(MostPlayedTimeRange mptr, DateTime timeNow, bool isStartOfDay, DateRange? customDate) {
+  DateTime? resolveOldDate(MostPlayedTimeRange mptr, DateTime timeNow, bool? isStartOfDay, DateRange? customDate) {
+    isStartOfDay ??= mostPlayedCustomIsStartOfDay.value;
     if (isStartOfDay) {
       return switch (mptr) {
-        MostPlayedTimeRange.allTime => null,
+        MostPlayedTimeRange.allTime => oldestTrack?.dateAddedMS.milliSecondsSinceEpoch,
         MostPlayedTimeRange.day => DateTime(timeNow.year, timeNow.month, timeNow.day),
         MostPlayedTimeRange.day3 => DateTime(timeNow.year, timeNow.month, timeNow.day - 2),
         MostPlayedTimeRange.week => DateTime(timeNow.year, timeNow.month, timeNow.day - 6),
@@ -497,7 +498,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       };
     } else {
       return switch (mptr) {
-        MostPlayedTimeRange.allTime => null,
+        MostPlayedTimeRange.allTime => oldestTrack?.dateAddedMS.milliSecondsSinceEpoch,
         MostPlayedTimeRange.day => timeNow,
         MostPlayedTimeRange.day3 => timeNow.subtract(const Duration(days: 3)),
         MostPlayedTimeRange.week => timeNow.subtract(const Duration(days: 7)),
@@ -517,7 +518,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     required E2 Function(T item) mainItemToSubItem,
   }) {
     final timeNow = DateTime.now();
-    final oldDate = _resolveOldDate(mptr, timeNow, isStartOfDay, customDate);
+    final oldDate = resolveOldDate(mptr, timeNow, isStartOfDay, customDate);
     final newDate = mptr == MostPlayedTimeRange.custom ? customDate?.newest : timeNow;
 
     final betweenDates = generateTracksFromHistoryDates(
