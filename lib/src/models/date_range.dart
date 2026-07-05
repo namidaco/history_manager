@@ -7,6 +7,8 @@ class DateRange {
     required this.newest,
   });
 
+  Duration toDuration() => newest.difference(oldest);
+
   factory DateRange.fromJson(Map<String, dynamic> map) {
     return DateRange(
       oldest: DateTime.fromMicrosecondsSinceEpoch(map["oldest"] as int),
