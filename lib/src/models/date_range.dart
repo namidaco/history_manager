@@ -7,6 +7,14 @@ class DateRange {
     required this.newest,
   });
 
+  Duration toDurationSafe() {
+    final diff = toDuration();
+    if (diff > Duration.zero) return diff;
+
+    // -- same day
+    return const Duration(days: 1);
+  }
+
   Duration toDuration() => newest.difference(oldest);
 
   factory DateRange.fromJson(Map<String, dynamic> map) {
