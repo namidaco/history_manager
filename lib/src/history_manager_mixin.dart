@@ -164,13 +164,25 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     );
   }
 
-  Future<void> addTracksToHistory(Iterable<T> tracks) async {
+  Future<void> addTracksToHistoryImportPreventDuplicates(Iterable<T> tracks) async {
+    if (!isHistoryLoaded) await _historyLoadCompleter.future;
+    if (_isIdle) await _idleCompleter.future;
+    final datesAdded = addTracksToHistoryOnly(tracks);
+    removeDuplicatedItems(datesAdded);
+    sortHistoryTracks(datesAdded);
+    updateMostPlayedPlaylist();
+    historyMap.refresh();
+    await saveHistoryToStorage(datesAdded);
+  }
+
+  Future<List<int>> addTracksToHistory(Iterable<T> tracks) async {
     if (!isHistoryLoaded) await _historyLoadCompleter.future;
     if (_isIdle) await _idleCompleter.future;
     final daysToSave = addTracksToHistoryOnly(tracks);
     updateMostPlayedPlaylist(tracks);
     historyMap.refresh();
     await saveHistoryToStorage(daysToSave);
+    return daysToSave;
   }
 
   /// adds [tracks] to [historyMap] and returns [daysToSave], to be used by [saveHistoryToStorage].
