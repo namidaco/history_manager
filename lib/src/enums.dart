@@ -16,4 +16,5 @@ enum TrackSource {
   youtubeMusic, // imported from yt takeout
   lastfm, // imported from lastfm export
   spotify, // imported from spotify export
+  listenbrainz, // imported from listenbrainz export
 }
