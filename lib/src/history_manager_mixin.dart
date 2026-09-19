@@ -511,7 +511,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     } else {
       return switch (mptr) {
         MostPlayedTimeRange.allTime => oldestTrack?.dateAddedMS.milliSecondsSinceEpoch,
-        MostPlayedTimeRange.day => timeNow,
+        MostPlayedTimeRange.day => timeNow.subtract(const Duration(days: 1)),
         MostPlayedTimeRange.day3 => timeNow.subtract(const Duration(days: 3)),
         MostPlayedTimeRange.week => timeNow.subtract(const Duration(days: 7)),
         MostPlayedTimeRange.month => timeNow.subtract(const Duration(days: 30)),
