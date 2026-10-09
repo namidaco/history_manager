@@ -1,23 +1,23 @@
 import 'dart:collection';
 
 class ListensSortedMap<K> {
-  Map<K, int> toCountOnly() => _map.map((key, value) => MapEntry(key, value.length));
+  Map<K, int> toCountOnly() => _map.map((key, entry) => MapEntry(key, entry.value.length));
 
   Iterable<K> get keysSortedByValue => _entries.map((element) => element.key);
-  Iterable<MapEntry<K, List<int>>> get entriesSortedByValue => keysSortedByValue.map((e) => MapEntry(e, _map[e] ?? []));
-  Iterable<MapEntry<K, int>> get entriesSortedByValueCount => keysSortedByValue.map((e) => MapEntry(e, _map[e]?.length ?? 0));
-  Iterable<List<int>> get values => keysSortedByValue.map((e) => _map[e] ?? []);
+  Iterable<MapEntry<K, List<int>>> get entriesSortedByValue => _entries;
+  Iterable<MapEntry<K, int>> get entriesSortedByValueCount => _entries.map((e) => MapEntry(e.key, e.value.length));
+  Iterable<List<int>> get values => _entries.map((e) => e.value);
   int get length => _map.length;
-  List<int>? operator [](K key) => _map[key];
+  List<int>? operator [](K key) => _map[key]?.value;
 
-  final _map = <K, List<int>>{};
+  final _map = <K, MapEntry<K, List<int>>>{};
   final _entries = SplayTreeSet<MapEntry<K, List<int>>>(
     (a, b) {
       int compare = b.value.length.compareTo(a.value.length);
       if (compare != 0) return compare;
 
-      final lastListenB = b.value.lastOrNull ?? 0;
-      final lastListenA = a.value.lastOrNull ?? 0;
+      final lastListenB = b.value.last;
+      final lastListenA = a.value.last;
       compare = lastListenA.compareTo(lastListenB); // the first one to reach that listen count thats why
       if (compare != 0) return compare;
 
@@ -27,23 +27,35 @@ class ListensSortedMap<K> {
   );
 
   void addElement(K key, int element) {
-    final list = _map[key];
-    if (list != null) {
-      this.remove(key); // remove first to avoid duplications
-      list.add(element);
-      this.add(key, list);
-    } else {
-      final list = [element];
-      this.add(key, list);
+    final entry = _map[key];
+    if (entry == null) {
+      final newEntry = MapEntry(key, [element]);
+      _insert(newEntry);
+      return;
     }
+    final list = entry.value;
+    _entries.remove(entry); // -- remove before changing the list, its position depends on it
+    if (element >= list.last) {
+      list.add(element);
+    } else {
+      final index = _lowerBound(list, element);
+      list.insert(index, element);
+    }
+    _entries.add(entry);
   }
 
   void removeElement(K key, int element) {
-    final list = _map[key];
-    if (list != null) {
-      this.remove(key); // remove first to avoid duplications
-      list.remove(element);
-      this.add(key, list);
+    final entry = _map[key];
+    if (entry == null) return;
+    final list = entry.value;
+    final index = _lowerBound(list, element);
+    if (index == list.length || list[index] != element) return;
+    _entries.remove(entry);
+    list.removeAt(index);
+    if (list.isEmpty) {
+      _map.remove(key);
+    } else {
+      _entries.add(entry);
     }
   }
 
@@ -58,29 +70,33 @@ class ListensSortedMap<K> {
     clear();
 
     for (final e in entries) {
-      final key = e.key;
-      final value = e.value;
-      _map[key] = value;
-      _entries.add(e);
+      e.value.sort();
+      _insert(e);
     }
-  }
-
-  void sortAllInternalLists() {
-    for (final entry in _map.values) {
-      entry.sort();
-    }
-  }
-
-  void add(K key, List<int> value) {
-    _map[key] = value;
-    _entries.add(MapEntry(key, value));
   }
 
   void remove(K key) {
-    if (_map.containsKey(key)) {
-      _entries.remove(MapEntry(key, _map[key]!));
-      _map.remove(key);
+    final entry = _map.remove(key);
+    if (entry != null) _entries.remove(entry);
+  }
+
+  void _insert(MapEntry<K, List<int>> entry) {
+    _map[entry.key] = entry;
+    _entries.add(entry);
+  }
+
+  static int _lowerBound(List<int> sortedList, int value) {
+    int low = 0;
+    int high = sortedList.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (sortedList[mid] < value) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
     }
+    return low;
   }
 
   @override

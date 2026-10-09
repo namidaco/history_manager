@@ -1,3 +1,6 @@
+import 'package:dart_extensions/dart_extensions.dart';
+
+/// [oldest] and [newest] are both included.
 class DateRange {
   final DateTime oldest;
   final DateTime newest;
@@ -7,15 +10,41 @@ class DateRange {
     required this.newest,
   });
 
+  factory DateRange.wholeDays({required DateTime oldest, required DateTime newest}) {
+    final oldestDayStart = DateTime(oldest.year, oldest.month, oldest.day);
+    final dayAfterNewest = DateTime(newest.year, newest.month, newest.day + 1);
+    final newestDayEnd = dayAfterNewest.subtract(_kMillisecond);
+    return DateRange(
+      oldest: oldestDayStart,
+      newest: newestDayEnd,
+    );
+  }
+
+  factory DateRange.ofDuration({required DateTime oldest, required Duration duration}) {
+    final newest = oldest.add(duration - _kMillisecond);
+    return DateRange(
+      oldest: oldest,
+      newest: newest,
+    );
+  }
+
+  static const _kMillisecond = Duration(milliseconds: 1);
+
   Duration toDurationSafe() {
-    final diff = toDuration();
-    if (diff > Duration.zero) return diff;
+    if (newest.isAfter(oldest)) return toDuration();
 
     // -- same day
     return const Duration(days: 1);
   }
 
-  Duration toDuration() => newest.difference(oldest);
+  Duration toDuration() => newest.difference(oldest) + _kMillisecond;
+
+  /// rounded, so a day with a dst change still counts as one.
+  int toDaysSafe() {
+    final duration = toDurationSafe();
+    final days = (duration.inHours / Duration.hoursPerDay).round();
+    return days.withMinimum(1);
+  }
 
   factory DateRange.fromJson(Map<String, dynamic> map) {
     return DateRange(

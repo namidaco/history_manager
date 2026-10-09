@@ -49,17 +49,17 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   static int daysSince1970ToMilliseconds(int day) => daysSince1970ToDate(day).millisecondsSinceEpoch;
 
   List<int> getHistoryYears() {
-    final newestDaySinceEpoch = historyMap.value.keys.firstOrNull;
-    final oldestDaySinceEpoch = historyMap.value.keys.lastOrNull;
-    final newestYear = newestDaySinceEpoch == null ? 0 : daysSince1970ToDate(newestDaySinceEpoch).year;
-    final oldestYear = oldestDaySinceEpoch == null ? 0 : daysSince1970ToDate(oldestDaySinceEpoch).year;
-
     final years = <int>[];
+    final oldestDaySinceEpoch = oldestDay;
+    if (oldestDaySinceEpoch == null) return years;
+    final newestDaySinceEpoch = historyMap.value.keys.first;
+    final newestYear = daysSince1970ToDate(newestDaySinceEpoch).year;
+    final oldestYear = daysSince1970ToDate(oldestDaySinceEpoch).year;
+
     final diff = (newestYear - oldestYear).abs();
     for (int i = 0; i <= diff; i++) {
       years.add(newestYear - i);
     }
-    years.remove(0);
     return years;
   }
 
@@ -84,11 +84,15 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     }
   }
 
-  T? get oldestTrack => historyMap.value.values.lastOrNull?.lastOrNull;
+  /// days <= 0 only hold listens with unknown dates.
+  int? get oldestDay => historyMap.value.lastKeyBefore(0);
+  int? get oldestDayR => historyMap.valueR.lastKeyBefore(0);
+
+  T? get oldestTrack => historyMap.value[oldestDay]?.lastOrNull;
   T? get newestTrack => historyMap.value.values.firstOrNull?.firstOrNull;
   Iterable<int> get historyDays => historyMap.value.keys;
 
-  T? get oldestTrackR => historyMap.valueR.values.lastOrNull?.lastOrNull;
+  T? get oldestTrackR => historyMap.valueR[oldestDayR]?.lastOrNull;
   T? get newestTrackR => historyMap.valueR.values.firstOrNull?.firstOrNull;
   Iterable<int> get historyDaysR => historyMap.valueR.keys;
 
@@ -188,7 +192,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   /// adds [tracks] to [historyMap] and returns [daysToSave], to be used by [saveHistoryToStorage].
   ///
   /// By using this instead of [addTracksToHistory], you gurantee that you WILL call:
-  /// [updateMostPlayedPlaylist], [sortHistoryTracks], [saveHistoryToStorage].
+  /// [updateMostPlayedPlaylist], [saveHistoryToStorage].
   /// Use this ONLY when continuously adding large number of tracks in a short span, such as adding from youtube or lastfm history.
   List<int> addTracksToHistoryOnly(Iterable<T> tracks, {bool preventDuplicate = false}) {
     final daysToSave = <int>[];
@@ -196,14 +200,16 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     bool addedNewDay = false;
     int totalAdded = 0;
     for (var twd in tracks) {
-      final day = twd.dateAddedMS.toDaysSince1970();
+      final dateAddedMS = twd.dateAddedMS;
+      final day = dateAddedMS.toDaysSince1970();
       final tracks = map[day];
       if (tracks != null) {
         if (preventDuplicate && tracks.contains(twd)) {
           // dont add
         } else {
           daysToSave.add(day);
-          tracks.insert(0, twd);
+          final index = _firstIndexAtOrBefore(tracks, dateAddedMS);
+          tracks.insert(index, twd);
           totalAdded++;
         }
       } else {
@@ -219,12 +225,28 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return daysToSave;
   }
 
-  int removeDuplicatedItemsAllowMultiSourceDuplicates([Iterable<int> inDays = const []]) {
+  int _firstIndexAtOrBefore(List<T> dayTracks, int dateMS) {
+    if (dayTracks.isEmpty || dateMS >= dayTracks.first.dateAddedMS) return 0;
+    int low = 1;
+    int high = dayTracks.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (dayTracks[mid].dateAddedMS > dateMS) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    return low;
+  }
+
+  /// [inDays] null checks every day.
+  int removeDuplicatedItemsAllowMultiSourceDuplicates([Iterable<int>? inDays]) {
     final map = historyMap.value;
     int totalRemoved = 0;
 
-    if (inDays.isNotEmpty) {
-      for (final day in inDays) {
+    if (inDays != null) {
+      for (final day in inDays.toSet()) {
         final trs = map[day];
         if (trs != null) {
           totalRemoved += trs.removeDuplicates();
@@ -241,12 +263,13 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return totalRemoved;
   }
 
-  int removeDuplicatedItems([Iterable<int> inDays = const []]) {
+  /// [inDays] null checks every day.
+  int removeDuplicatedItems([Iterable<int>? inDays]) {
     final map = historyMap.value;
     int totalRemoved = 0;
 
-    if (inDays.isNotEmpty) {
-      for (final day in inDays) {
+    if (inDays != null) {
+      for (final day in inDays.toSet()) {
         final trs = map[day];
         if (trs != null) {
           totalRemoved += _removeDuplicatesFromList(trs);
@@ -265,15 +288,20 @@ mixin HistoryManager<T extends ItemWithDate, E> {
 
   Future<int> removeSourcesTracksFromHistory(List<TrackSource> sources, {bool removeMultiSourceDuplicates = false, DateTime? oldestDate, DateTime? newestDate}) async {
     if (sources.isEmpty && removeMultiSourceDuplicates == false) return 0;
+    if (!isHistoryLoaded) await _historyLoadCompleter.future;
+    if (_isIdle) await _idleCompleter.future;
 
     int totalRemoved = 0;
-    List<int>? daysToSave;
+    final List<int> daysToSave;
 
     // -- remove all sources (i.e all history)
     if (oldestDate == null && newestDate == null && sources.isEqualTo(TrackSource.values)) {
       totalRemoved = totalHistoryItemsCount.value;
-      historyMap.value.clear();
-      daysToSave = null;
+      final history = historyMap.value;
+      for (final trs in history.values) {
+        trs.clear();
+      }
+      daysToSave = history.keys.toList();
     } else {
       final daysToRemoveFrom = historyDays.toList();
 
@@ -310,11 +338,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       totalHistoryItemsCount.value -= totalRemoved;
       historyMap.refresh();
       updateMostPlayedPlaylist();
-      await saveHistoryToStorage(daysToSave);
-    } else if (daysToSave != null) {
-      // just in case its edited but `totalRemoved` uh
-      await saveHistoryToStorage(daysToSave);
     }
+    // -- saving even if nothing was removed, just in case its edited but `totalRemoved` uh
+    await saveHistoryToStorage(daysToSave);
 
     return totalRemoved;
   }
@@ -328,35 +354,39 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final lengthBefore = tracks.length;
     final alrExistingMap = <int, List<(T, int)>>{};
     final indicesToRemove = <int>[];
-    bool shouldRemove(T tr, int i, int dateNormalized) {
-      final alrExistingOnes = alrExistingMap[dateNormalized];
-      if (alrExistingOnes != null &&
-          alrExistingOnes.any(
-            (existingInfo) {
-              final existing = existingInfo.$1;
-              if (existing == tr) return true;
+    bool didReplace = false;
+    bool isDuplicateOfExisting(T tr, (T, int) existingInfo) {
+      final existing = existingInfo.$1;
+      if (existing == tr) return true;
+      final diffMS = (existing.dateAddedMS - tr.dateAddedMS).abs();
+      if (diffMS >= millisecondsToIgnore) return false;
 
-              final existingSub = mainItemToSubItem(existing);
-              final trSub = mainItemToSubItem(tr);
-              if (existingSub == trSub) {
-                if (existing.sourceNull == tr.sourceNull) {
-                  return false;
-                }
-                // -- maybe its better to reverse these null checks, as null source means local,
-                // -- which is most likely the actual source. but doing so will not work if T didnt save source
-                // -- bcz the other source is already null, so it ends up removing nothing
-                if (existing.sourceNull == null && tr.sourceNull != null) {
-                  tracks[existingInfo.$2] = tr; // replace the earlier track..
-                  return true; // .. and remove current
-                } else if (existing.sourceNull != null) {
-                  return true;
-                }
-                return false;
-              }
-              return false;
-            },
-          )) {
-        return true;
+      final existingSub = mainItemToSubItem(existing);
+      final trSub = mainItemToSubItem(tr);
+      if (existingSub == trSub) {
+        if (existing.sourceNull == tr.sourceNull) {
+          return false;
+        }
+        // -- maybe its better to reverse these null checks, as null source means local,
+        // -- which is most likely the actual source. but doing so will not work if T didnt save source
+        // -- bcz the other source is already null, so it ends up removing nothing
+        if (existing.sourceNull == null && tr.sourceNull != null) {
+          tracks[existingInfo.$2] = tr; // replace the earlier track..
+          didReplace = true;
+          return true; // .. and remove current
+        } else if (existing.sourceNull != null) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    }
+
+    bool shouldRemove(T tr, int dateNormalized) {
+      for (int bucket = dateNormalized - 1; bucket <= dateNormalized + 1; bucket++) {
+        final alrExistingOnes = alrExistingMap[bucket];
+        if (alrExistingOnes == null) continue;
+        if (alrExistingOnes.any((existingInfo) => isDuplicateOfExisting(tr, existingInfo))) return true;
       }
       return false;
     }
@@ -364,7 +394,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     for (var i = 0; i < tracks.length; i++) {
       final tr = tracks[i];
       final dateNormalized = tr.dateAddedMS ~/ millisecondsToIgnore;
-      if (shouldRemove(tr, i, dateNormalized)) {
+      if (shouldRemove(tr, dateNormalized)) {
         indicesToRemove.add(i);
       } else {
         alrExistingMap[dateNormalized] ??= [];
@@ -372,34 +402,38 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       }
     }
     indicesToRemove.reverseLoop((item) => tracks.removeAt(item));
+    // -- the replacement can be up to [millisecondsToIgnore] away from the listen it replaced
+    if (didReplace) _sortDayTracks(tracks);
     final lengthAfter = tracks.length;
     return lengthBefore - lengthAfter;
   }
+
+  void _sortDayTracks(List<T> tracks) => tracks.sortByReverse((e) => e.dateAddedMS);
 
   /// Sorts each [historyMap]'s value by newest.
   ///
   /// Providing [daysToSort] will sort these entries only.
   void sortHistoryTracks([Iterable<int>? daysToSort]) {
-    void sortTheseTracks(List<T> tracks) => tracks.sortByReverse((e) => e.dateAddedMS);
-
     final map = historyMap.value;
 
     if (daysToSort != null) {
-      for (final day in daysToSort) {
+      for (final day in daysToSort.toSet()) {
         final trs = map[day];
         if (trs != null) {
-          sortTheseTracks(trs);
+          _sortDayTracks(trs);
         }
       }
     } else {
       map.forEach((key, value) {
-        sortTheseTracks(value);
+        _sortDayTracks(value);
       });
     }
     historyMap.refresh();
   }
 
   Future<void> removeTracksFromHistory(Iterable<T> tracksWithDates) async {
+    if (!isHistoryLoaded) await _historyLoadCompleter.future;
+    if (_isIdle) await _idleCompleter.future;
     final daysToSave = <int>[];
     final map = historyMap.value;
     int totalRemoved = 0;
@@ -419,7 +453,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (totalRemoved > 0) {
       totalHistoryItemsCount.value -= totalRemoved;
       historyMap.refresh();
-      topTracksMapListens.refresh();
+      updateTempMostPlayedPlaylist();
       await saveHistoryToStorage(daysToSave);
     }
   }
@@ -428,6 +462,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     bool Function(T e) test,
     T Function(T old) newElement,
   ) async {
+    if (!isHistoryLoaded) await _historyLoadCompleter.future;
+    if (_isIdle) await _idleCompleter.future;
     final daysToSave = <int>{};
     for (final entry in historyMap.value.entries) {
       final day = entry.key;
@@ -460,7 +496,6 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       }
 
       topTracksMapListens.value.assignAll(tempMap);
-      topTracksMapListens.value.sortAllInternalLists();
 
       onTopItemsMapModified?.call();
     }
@@ -528,49 +563,59 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     required bool isStartOfDay,
     DateRange? customDate,
     required E2 Function(T item) mainItemToSubItem,
+    DateTime? timeNow,
   }) {
-    final timeNow = DateTime.now();
+    timeNow ??= DateTime.now();
+    final topItems = ListensSortedMap<E2>();
     final oldDate = resolveOldDate(mptr, timeNow, isStartOfDay, customDate);
     final newDate = mptr == MostPlayedTimeRange.custom ? customDate?.newest : timeNow;
-
-    final betweenDates = generateTracksFromHistoryDates(
-      oldDate,
-      newDate,
-      removeDuplicates: false,
-    );
+    if (oldDate == null || newDate == null) return topItems;
 
     final tempMap = <E2, List<int>>{};
 
-    for (var t in betweenDates) {
-      tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
-    }
+    _loopListensBetween(oldDate, newDate, (dayTracks, startIndex, endIndex) {
+      for (int i = startIndex; i < endIndex; i++) {
+        final t = dayTracks[i];
+        tempMap.addForce(mainItemToSubItem(t), t.dateAddedMS);
+      }
+    });
 
-    final topItems = ListensSortedMap<E2>();
     topItems.assignAll(tempMap);
-    topItems.sortAllInternalLists();
     return topItems;
   }
 
   List<T> generateTracksFromHistoryDates(DateTime? oldestDate, DateTime? newestDate, {bool removeDuplicates = true}) {
     if (oldestDate == null || newestDate == null) return [];
 
-    final oldestDay = oldestDate.toDaysSince1970();
-    final newestDay = newestDate.toDaysSince1970();
-
     final tracksAvailable = <T>[];
 
-    for (final entry in historyMap.value.entries) {
-      final day = entry.key;
-      if (day > newestDay) continue;
-      if (day < oldestDay) break;
-      tracksAvailable.addAll(entry.value);
-    }
+    _loopListensBetween(oldestDate, newestDate, (dayTracks, startIndex, endIndex) {
+      final tracksInRange = dayTracks.getRange(startIndex, endIndex);
+      tracksAvailable.addAll(tracksInRange);
+    });
 
     if (removeDuplicates) {
       tracksAvailable.removeDuplicates(mainItemToSubItem);
     }
 
     return tracksAvailable;
+  }
+
+  void _loopListensBetween(DateTime oldest, DateTime newest, void Function(List<T> dayTracks, int startIndex, int endIndex) onDay) {
+    final oldestMS = oldest.millisecondsSinceEpoch;
+    final newestMS = newest.millisecondsSinceEpoch;
+    final oldestDay = oldest.toDaysSince1970();
+    final newestDay = newest.toDaysSince1970();
+
+    for (final entry in historyMap.value.entries) {
+      final day = entry.key;
+      if (day > newestDay) continue;
+      if (day < oldestDay) break;
+      final dayTracks = entry.value;
+      final startIndex = day == newestDay ? _firstIndexAtOrBefore(dayTracks, newestMS) : 0;
+      final endIndex = day == oldestDay ? _firstIndexAtOrBefore(dayTracks, oldestMS - 1) : dayTracks.length;
+      if (startIndex < endIndex) onDay(dayTracks, startIndex, endIndex);
+    }
   }
 
   Future<void> saveHistoryToStorage([List<int>? daysToSave]) async {
@@ -633,6 +678,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     await _historyLoadCompleter.future;
 
     if (idle) {
+      if (_isIdle) return; // -- a new completer would orphan the current waiters
       _isIdle = true;
       _idleCompleter = Completer<bool>();
     } else {
