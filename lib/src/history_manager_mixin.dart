@@ -171,7 +171,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   Future<void> addTracksToHistoryImportPreventDuplicates(Iterable<T> tracks) async {
     if (!isHistoryLoaded) await _historyLoadCompleter.future;
     if (_isIdle) await _idleCompleter.future;
-    final datesAdded = addTracksToHistoryOnly(tracks);
+    final datesAdded = addTracksToHistoryOnly(tracks, preventDuplicate: true);
+    if (datesAdded.isEmpty) return;
     removeDuplicatedItems(datesAdded);
     sortHistoryTracks(datesAdded);
     updateMostPlayedPlaylist();
@@ -204,11 +205,11 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       final day = dateAddedMS.toDaysSince1970();
       final tracks = map[day];
       if (tracks != null) {
-        if (preventDuplicate && tracks.contains(twd)) {
+        final index = _firstIndexAtOrBefore(tracks, dateAddedMS);
+        if (preventDuplicate && _containsAtDate(tracks, index, twd)) {
           // dont add
         } else {
           daysToSave.add(day);
-          final index = _firstIndexAtOrBefore(tracks, dateAddedMS);
           tracks.insert(index, twd);
           totalAdded++;
         }
@@ -223,6 +224,17 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     if (totalAdded > 0) totalHistoryItemsCount.value += totalAdded;
     if (addedNewDay) modifiedDays.refresh();
     return daysToSave;
+  }
+
+  /// [index] is the first item at or before [item]'s date, equal items share its date.
+  bool _containsAtDate(List<T> dayTracks, int index, T item) {
+    final dateMS = item.dateAddedMS;
+    for (int i = index; i < dayTracks.length; i++) {
+      final existing = dayTracks[i];
+      if (existing.dateAddedMS != dateMS) return false;
+      if (existing == item) return true;
+    }
+    return false;
   }
 
   int _firstIndexAtOrBefore(List<T> dayTracks, int dateMS) {
