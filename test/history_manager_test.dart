@@ -35,7 +35,13 @@ class _TestHistory with HistoryManager<_Listen, String> {
   double daysToSectionExtent(List<int> days) => 0.0;
 
   @override
-  Future<HistoryPrepareInfo<_Listen, String>> prepareAllHistoryFilesFunction(String directoryPath) async {
+  bool didRepairHistoryDays = true;
+
+  @override
+  void onHistoryDaysRepaired() => didRepairHistoryDays = true;
+
+  @override
+  Future<HistoryPrepareInfo<_Listen, String>> prepareAllHistoryFilesFunction(String directoryPath, {bool repairDays = false}) async {
     final map = SplayTreeMap<int, List<_Listen>>((date1, date2) => date2.compareTo(date1));
     final tempMapTopItems = <String, List<int>>{};
     int totalCount = 0;

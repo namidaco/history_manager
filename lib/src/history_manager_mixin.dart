@@ -17,6 +17,8 @@ import 'enums.dart';
 import 'models/date_range.dart';
 import 'models/item_with_date.dart';
 
+part 'history_days_repair.dart';
+
 /// Main Item gets stored inside main map, while Sub Item is used with most played maps.
 ///
 /// History is saved in chunks by days.
@@ -24,7 +26,12 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   E mainItemToSubItem(T item);
 
   /// Return history map along with sorted entries, See [updateMostPlayedPlaylist] for sorting.
-  Future<HistoryPrepareInfo<T, E>> prepareAllHistoryFilesFunction(String directoryPath);
+  /// [repairDays] runs [HistoryDaysRepair] over the loaded days.
+  Future<HistoryPrepareInfo<T, E>> prepareAllHistoryFilesFunction(String directoryPath, {bool repairDays = false});
+
+  /// [prepareHistoryFile] repairs the days until this is true, see [onHistoryDaysRepaired].
+  bool get didRepairHistoryDays;
+  void onHistoryDaysRepaired();
 
   Map<String, dynamic> itemToJson(T item);
 
@@ -206,13 +213,16 @@ mixin HistoryManager<T extends ItemWithDate, E> {
       final tracks = map[day];
       if (tracks != null) {
         final index = _firstIndexAtOrBefore(tracks, dateAddedMS);
-        if (preventDuplicate && _containsAtDate(tracks, index, twd)) {
+        final isDuplicate = preventDuplicate && (_containsAtDate(tracks, index, twd) || _isInAdjacentDay(map, day, twd));
+        if (isDuplicate) {
           // dont add
         } else {
           daysToSave.add(day);
           tracks.insert(index, twd);
           totalAdded++;
         }
+      } else if (preventDuplicate && _isInAdjacentDay(map, day, twd)) {
+        // dont add
       } else {
         daysToSave.add(day);
         map[day] = <T>[twd];
@@ -226,8 +236,20 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return daysToSave;
   }
 
+  /// listens saved in another timezone (or by older versions) can sit in the day before or after.
+  bool _isInAdjacentDay(Map<int, List<T>> map, int day, T item) {
+    return _isInDay(map, day - 1, item) || _isInDay(map, day + 1, item);
+  }
+
+  bool _isInDay(Map<int, List<T>> map, int day, T item) {
+    final dayTracks = map[day];
+    if (dayTracks == null) return false;
+    final index = _firstIndexAtOrBefore(dayTracks, item.dateAddedMS);
+    return _containsAtDate(dayTracks, index, item);
+  }
+
   /// [index] is the first item at or before [item]'s date, equal items share its date.
-  bool _containsAtDate(List<T> dayTracks, int index, T item) {
+  static bool _containsAtDate<I extends ItemWithDate>(List<I> dayTracks, int index, I item) {
     final dateMS = item.dateAddedMS;
     for (int i = index; i < dayTracks.length; i++) {
       final existing = dayTracks[i];
@@ -237,7 +259,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return false;
   }
 
-  int _firstIndexAtOrBefore(List<T> dayTracks, int dateMS) {
+  static int _firstIndexAtOrBefore<I extends ItemWithDate>(List<I> dayTracks, int dateMS) {
     if (dayTracks.isEmpty || dateMS >= dayTracks.first.dateAddedMS) return 0;
     int low = 1;
     int high = dayTracks.length;
@@ -671,7 +693,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   }
 
   Future<void> prepareHistoryFile() async {
-    final res = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY);
+    final shouldRepairDays = !didRepairHistoryDays;
+    final res = await prepareAllHistoryFilesFunction(HISTORY_DIRECTORY, repairDays: shouldRepairDays);
     historyMap.value = res.historyMap;
     topTracksMapListens.value = res.topItems;
     totalHistoryItemsCount.value = res.totalItemsCount;
@@ -679,6 +702,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     onTopItemsMapModified?.call();
     updateTempMostPlayedPlaylist();
     _historyLoadCompleter.completeIfWasnt(true);
+    if (shouldRepairDays) onHistoryDaysRepaired();
   }
 
   /// Indicates wether the history should add items to the map normally.
