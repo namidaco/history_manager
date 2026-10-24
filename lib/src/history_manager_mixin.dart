@@ -175,16 +175,18 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     );
   }
 
-  Future<void> addTracksToHistoryImportPreventDuplicates(Iterable<T> tracks) async {
+  /// returns how many listens got added.
+  Future<int> addTracksToHistoryImportPreventDuplicates(Iterable<T> tracks) async {
     if (!isHistoryLoaded) await _historyLoadCompleter.future;
     if (_isIdle) await _idleCompleter.future;
     final datesAdded = addTracksToHistoryOnly(tracks, preventDuplicate: true);
-    if (datesAdded.isEmpty) return;
-    removeDuplicatedItems(datesAdded);
+    if (datesAdded.isEmpty) return 0;
+    final removedCount = removeDuplicatedItems(datesAdded);
     sortHistoryTracks(datesAdded);
     updateMostPlayedPlaylist();
     historyMap.refresh();
     await saveHistoryToStorage(datesAdded);
+    return datesAdded.length - removedCount;
   }
 
   Future<List<int>> addTracksToHistory(Iterable<T> tracks) async {
