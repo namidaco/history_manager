@@ -658,7 +658,7 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     final map = historyMap.value;
     bool removedDay = false;
     Future<void> saveThisDay(int key, List<T> tracks) async {
-      await File('$HISTORY_DIRECTORY$key.json').writeAsJson(tracks.map((e) => itemToJson(e)).toList());
+      await File('$HISTORY_DIRECTORY$key.json').writeAsJsonAtomic(tracks.map((e) => itemToJson(e)).toList());
     }
 
     Future<void> deleteThisDay(int key) async {

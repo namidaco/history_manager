@@ -54,7 +54,7 @@ class HistoryDaysRepair<T extends ItemWithDate> {
         dayFile.deleteIfExistsSync();
       } else {
         final dayItemsJson = dayItems.map(itemToJson).toList();
-        dayFile.writeAsJsonSync(dayItemsJson);
+        dayFile.writeAsJsonAtomicSync(dayItemsJson);
       }
     }
     return droppedDuplicates;

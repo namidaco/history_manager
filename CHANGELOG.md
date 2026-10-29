@@ -1,3 +1,7 @@
+## 1.8.4
+
+- Write files atomically to protect against corruption (if killed midway)
+
 ## 1.8.0
 
 - Most played lists keep one entry per item with the right first and last listen, listens are inserted in order and items left without listens are removed
