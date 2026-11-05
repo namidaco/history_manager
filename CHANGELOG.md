@@ -1,3 +1,7 @@
+## 1.8.5
+
+- `TrackSource.appleMusic` for listens imported from an Apple Music export
+
 ## 1.8.4
 
 - Write files atomically to protect against corruption (if killed midway)

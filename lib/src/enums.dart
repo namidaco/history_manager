@@ -17,4 +17,5 @@ enum TrackSource {
   lastfm, // imported from lastfm export
   spotify, // imported from spotify export
   listenbrainz, // imported from listenbrainz export
+  appleMusic, // imported from apple music export
 }
