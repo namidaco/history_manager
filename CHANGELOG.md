@@ -1,3 +1,7 @@
+## 1.8.6
+
+- Replacing items (ex: a new track path) removes the ones that became equal to another item at the same date
+
 ## 1.8.5
 
 - `TrackSource.appleMusic` for listens imported from an Apple Music export

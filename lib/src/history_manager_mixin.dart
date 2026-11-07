@@ -500,8 +500,9 @@ mixin HistoryManager<T extends ItemWithDate, E> {
   ) async {
     if (!isHistoryLoaded) await _historyLoadCompleter.future;
     if (_isIdle) await _idleCompleter.future;
+    final map = historyMap.value;
     final daysToSave = <int>{};
-    for (final entry in historyMap.value.entries) {
+    for (final entry in map.entries) {
       final day = entry.key;
       final trs = entry.value;
       trs.replaceWhere(
@@ -510,9 +511,38 @@ mixin HistoryManager<T extends ItemWithDate, E> {
         onMatch: () => daysToSave.add(day),
       );
     }
+    int totalRemoved = 0;
+    for (final day in daysToSave) {
+      totalRemoved += _removeEqualItemsAtSameDate(map[day]!);
+    }
+    if (totalRemoved > 0) totalHistoryItemsCount.value -= totalRemoved;
     historyMap.refresh();
     updateMostPlayedPlaylist();
     await saveHistoryToStorage(daysToSave.toList());
+  }
+
+  /// a replaced item can become equal to another one listed at its date (ex: both copies of a listen moved to the same path).
+  static int _removeEqualItemsAtSameDate<I extends ItemWithDate>(List<I> dayTracks) {
+    final lengthBefore = dayTracks.length;
+    int writeIndex = 0;
+    int dateStartIndex = 0;
+    for (int readIndex = 0; readIndex < lengthBefore; readIndex++) {
+      final item = dayTracks[readIndex];
+      final dateMS = item.dateAddedMS;
+      if (writeIndex > 0 && dayTracks[writeIndex - 1].dateAddedMS != dateMS) dateStartIndex = writeIndex;
+      bool isDuplicate = false;
+      for (int i = dateStartIndex; i < writeIndex; i++) {
+        if (dayTracks[i] == item) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (isDuplicate) continue;
+      dayTracks[writeIndex] = item;
+      writeIndex++;
+    }
+    dayTracks.length = writeIndex;
+    return lengthBefore - writeIndex;
   }
 
   /// Most Played Playlist, relies totally on History Playlist.
