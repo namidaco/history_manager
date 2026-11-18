@@ -1,3 +1,7 @@
+## 1.8.7
+
+- `createScrollController()` lets the app give the history its own scroll controller (ex: smooth wheel scrolling)
+
 ## 1.8.6
 
 - Replacing items (ex: a new track path) removes the ones that became equal to another item at the same date

@@ -123,7 +123,8 @@ mixin HistoryManager<T extends ItemWithDate, E> {
     return isAll ? topTracksMapListens : topTracksMapListensTemp;
   }
 
-  late final ScrollController scrollController = ScrollController();
+  ScrollController createScrollController() => ScrollController();
+  late final ScrollController scrollController = createScrollController();
   late final highlightedItem = Rxn<HistoryScrollInfo>();
 
   int? currentScrollPositionToDay(double itemExtent, double headerExtent, {double topPadding = 0.0}) {
